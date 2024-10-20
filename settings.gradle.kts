@@ -14,5 +14,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "composable-realtime-animations"
-include(":app")
- 
+include(":sample-app")
+include(":composable_realtime_animations")
