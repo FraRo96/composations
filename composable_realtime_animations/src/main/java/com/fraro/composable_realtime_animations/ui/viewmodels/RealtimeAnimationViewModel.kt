@@ -31,7 +31,7 @@ class RealtimeAnimationViewModel : ViewModel() {
 
     @OptIn(FlowPreview::class)
     private fun transformStream(
-        samplingRate: Int
+        samplingInterval: Int
     ): Flow<ConcurrentHashMap<Long, ParticleVisualizationModel>> {
         val particleMap = ConcurrentHashMap<Long, ParticleVisualizationModel>()
 
@@ -40,7 +40,7 @@ class RealtimeAnimationViewModel : ViewModel() {
             .onEach { particleModel ->
                 particleMap[particleModel.id] = particleModel
             }
-            .sample(samplingRate.toLong())
+            .sample(samplingInterval.toLong())
             .map {
                 val snapshot = ConcurrentHashMap(particleMap)
                 particleMap.clear()
@@ -52,11 +52,11 @@ class RealtimeAnimationViewModel : ViewModel() {
 
     fun generateStream(
         flow: Flow<ParticleVisualizationModel>,
-        samplingRate: Int
+        samplingInterval: Int
     ) {
         animationDataStreamerUseCase.invoke(flow)
 
-        animationFlow = transformStream(samplingRate)
+        animationFlow = transformStream(samplingInterval)
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
