@@ -38,7 +38,6 @@ class MainViewModel : ViewModel() {
         while (true) {
             // Randomly choose one of the existing particles to update
             val id = particles.keys.random()
-            val previousParticle = particles[id]
             val newOffset = randomOffset()
             val newHeading = randomHeading()
 

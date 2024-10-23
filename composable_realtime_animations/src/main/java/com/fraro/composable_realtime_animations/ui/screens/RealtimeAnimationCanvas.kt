@@ -117,14 +117,18 @@ fun RealtimeAnimationCanvas(
                     coroutineScope.launch {
                         val currParticle = particlesAnimMap[particle.key]
                         currParticle?.let {
-                            animatedOffset.animateTo(
-                                nextScreenPosition.offset,
-                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                            )
-                            animatedHeading.animateTo(
-                                nextScreenPosition.heading,
-                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                            )
+                            launch {
+                                animatedOffset.animateTo(
+                                    nextScreenPosition.offset,
+                                    tween(durationMillis = it.duration * 2, easing = LinearEasing)
+                                )
+                            }
+                            launch {
+                                animatedHeading.animateTo(
+                                    nextScreenPosition.heading,
+                                    tween(durationMillis = it.duration * 2, easing = LinearEasing)
+                                )
+                            }
                         }
                     }
                 }
@@ -151,7 +155,7 @@ fun RealtimeAnimationCanvas(
                         val image = it.value.bitmap
                         if (image != null) {
                             rotate(
-                                degrees = it.value.prev.heading,
+                                degrees = (it.value.animatedHeading?.value) ?: (it.value.prev.heading),
                                 pivot = Offset(
                                     offset.value.x + image.width / 2,
                                     offset.value.y + image.height / 2
