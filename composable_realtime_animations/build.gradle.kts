@@ -6,13 +6,20 @@ plugins {
 
 android {
     namespace = "com.fraro.composable_realtime_animations"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         minSdk = 29
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+    }
+
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.4.3"
     }
 
     buildTypes {
@@ -36,9 +43,7 @@ android {
 dependencies {
 
     implementation(libs.androidx.lifecycle.runtimeCompose)
-    implementation(libs.androidx.compose.material3.windowSizeClass)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.coil.kt.compose)
     implementation(libs.coil.kt.svg)
     implementation(libs.coil.kt)

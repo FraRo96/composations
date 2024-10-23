@@ -19,11 +19,7 @@ class AnimationDataStreamerUseCase {
     private val _streamFlow = MutableStateFlow<ParticleVisualizationModel?>(null)
     val streamFlow: StateFlow<ParticleVisualizationModel?> = _streamFlow
 
-    suspend operator fun invoke() {
-
-    }
-
-    fun generateStream(flow: Flow<ParticleVisualizationModel>) {
+    operator fun invoke(flow: Flow<ParticleVisualizationModel>) {
         CoroutineScope(Dispatchers.Default + Job()).launch {
             flow.stateIn(
                 scope = this,

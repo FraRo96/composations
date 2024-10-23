@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.domain.AnimationDataStreamerUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -24,14 +23,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
 
-@HiltViewModel
-class RealtimeAnimationViewModel @Inject constructor(
-    private val animationDataStreamerUseCase: AnimationDataStreamerUseCase
-): ViewModel() {
-    
+class RealtimeAnimationViewModel : ViewModel() {
+
     lateinit var animationFlow: StateFlow<ConcurrentHashMap<Long, ParticleVisualizationModel>?>
+    val animationDataStreamerUseCase = AnimationDataStreamerUseCase()
 
     @OptIn(FlowPreview::class)
     private fun transformStream(
@@ -58,7 +54,7 @@ class RealtimeAnimationViewModel @Inject constructor(
         flow: Flow<ParticleVisualizationModel>,
         samplingRate: Int
     ) {
-        animationDataStreamerUseCase.generateStream(flow)
+        animationDataStreamerUseCase.invoke(flow)
 
         animationFlow = transformStream(samplingRate)
             .stateIn(
