@@ -44,11 +44,7 @@ dependencies {
 
     implementation(libs.androidx.lifecycle.runtimeCompose)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.coil.kt.compose)
-    implementation(libs.coil.kt.svg)
-    implementation(libs.coil.kt)
     implementation(libs.androidx.material)
-
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.material)
