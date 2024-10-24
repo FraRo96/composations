@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.gradleLicensesPlugins)
+
+    id("com.google.android.gms.oss-licenses-plugin")
 }
 
 android {
@@ -29,6 +31,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -55,13 +58,13 @@ dependencies {
 
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
-    //implementation(libs.androidx.compose.material3.windowSizeClass)
     implementation(libs.activity.compose)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
     implementation(libs.ui.graphics)
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
+    implementation(libs.play.services.oss.licenses)
     implementation(project(":composable_realtime_animations"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)

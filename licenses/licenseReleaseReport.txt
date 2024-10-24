@@ -49,6 +49,10 @@ Android Support DynamicAnimation (1.0.0) - The Apache Software License, Version 
 Physics-based animation in support library, where the animations are driven by physics force. You can use this Animation library to create smooth and realistic animations.
 http://developer.android.com/tools/extras/support-library.html
 
+Android Support Library Async Layout Inflater (1.0.0) - The Apache Software License, Version 2.0
+The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
+http://developer.android.com/tools/extras/support-library.html
+
 Android Support Library collections (1.1.0) - The Apache Software License, Version 2.0
 Standalone efficient collections.
 http://developer.android.com/tools/extras/support-library.html
@@ -56,6 +60,10 @@ http://developer.android.com/tools/extras/support-library.html
 Android Support Library Coordinator Layout (1.1.0) - The Apache Software License, Version 2.0
 The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
 https://developer.android.com/jetpack/androidx
+
+Android Support Library core UI (1.0.0) - The Apache Software License, Version 2.0
+The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
+http://developer.android.com/tools/extras/support-library.html
 
 Android Support Library core utils (1.0.0) - The Apache Software License, Version 2.0
 The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
@@ -68,6 +76,10 @@ http://developer.android.com/tools/extras/support-library.html
 Android Support Library Custom View (1.1.0) - The Apache Software License, Version 2.0
 The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
 https://developer.android.com/jetpack/androidx
+
+Android Support Library Custom View (1.0.0) - The Apache Software License, Version 2.0
+The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
+http://developer.android.com/tools/extras/support-library.html
 
 Android Support Library Document File (1.0.0) - The Apache Software License, Version 2.0
 The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
@@ -94,6 +106,10 @@ The Support Library is a static library that you can add to your Android applica
 http://developer.android.com/tools/extras/support-library.html
 
 Android Support Library Print (1.0.0) - The Apache Software License, Version 2.0
+The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
+http://developer.android.com/tools/extras/support-library.html
+
+Android Support Library Sliding Pane Layout (1.0.0) - The Apache Software License, Version 2.0
 The Support Library is a static library that you can add to your Android application in order to use APIs that are either not available for older platform versions or utility APIs that aren't a part of the framework APIs. Compatible on devices running API 14 or later.
 http://developer.android.com/tools/extras/support-library.html
 
@@ -405,6 +421,14 @@ https://developer.android.com/jetpack/androidx/releases/lifecycle#2.8.6
 Material Components for Android (1.12.0) - The Apache Software License, Version 2.0
 Material Components for Android is a static library that you can add to your Android application in order to use APIs that provide implementations of the Material Design specification. Compatible on devices running API 14 or later.
 https://github.com/material-components/material-components-android
+
+play-services-base (18.0.1) - Android Software Development Kit License
+
+play-services-basement (18.0.0) - Android Software Development Kit License
+
+play-services-oss-licenses (17.0.1) - Android Software Development Kit License
+
+play-services-tasks (18.0.1) - Android Software Development Kit License
 
 Saved State (1.2.1) - The Apache Software License, Version 2.0
 Android Lifecycle Saved State
