@@ -13,6 +13,7 @@ espresso-core = "3.6.1"
 lifecycle-runtime-ktx = "2.8.6"
 activity-compose = "1.9.2"
 compose-bom = "2023.03.00"
+gradle-licenses-plugin = "0.9.8"
 appcompat = "1.7.0"
 material = "1.12.0"
 
@@ -46,4 +47,4 @@ androidx-lifecycle-runtimeCompose = { group = "androidx.lifecycle", name = "life
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
-
+gradleLicensesPlugins = { id = "com.jaredsburrows.license", version.ref = "gradle-licenses-plugin" }
