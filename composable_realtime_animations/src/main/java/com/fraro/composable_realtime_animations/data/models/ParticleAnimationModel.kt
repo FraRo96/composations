@@ -12,6 +12,6 @@ data class ParticleAnimationModel(
     val next: ScreenPosition,
     val animatedHeading: Animatable<Float, AnimationVector1D>?,
     val animatedOffset: Animatable<Offset, AnimationVector2D>?,
-    val bitmap: ImageBitmap?,
+    val particleVisualizationModel: ParticleVisualizationModel,
     val duration: Int
 )

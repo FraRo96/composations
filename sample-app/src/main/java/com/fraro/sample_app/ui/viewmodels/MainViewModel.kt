@@ -1,8 +1,13 @@
 package com.fraro.sample_app.ui.viewmodels
 
+import android.app.Application
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.CreationExtras
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import kotlinx.coroutines.delay
@@ -55,4 +60,6 @@ class MainViewModel : ViewModel() {
             delay(50)
         }
     }
+
+    // Define ViewModel factory in a companion object
 }

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.gradleLicensesPlugins)
+    alias(libs.plugins.kotlin.serialization)
 
     id("com.google.android.gms.oss-licenses-plugin")
 }
@@ -62,9 +63,12 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
     implementation(libs.ui.graphics)
+    implementation(libs.androidx.graphics.shapes.android)
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
     implementation(libs.play.services.oss.licenses)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.kotlinx.serialization.json)
     implementation(project(":composable_realtime_animations"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
