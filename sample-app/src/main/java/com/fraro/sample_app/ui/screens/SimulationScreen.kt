@@ -12,7 +12,7 @@ import com.fraro.sample_app.ui.viewmodels.MainViewModel
 
 @Composable
 fun SimulationScreen() {
-    val navController = rememberNavController()
+
     val context = LocalContext.current
     val lifecycleOwner = context as ViewModelStoreOwner
     val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]

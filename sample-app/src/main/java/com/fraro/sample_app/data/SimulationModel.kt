@@ -3,30 +3,30 @@ package com.fraro.sample_app.data
 import com.fraro.composable_realtime_animations.data.models.Shape
 import kotlinx.serialization.Serializable
 
-@Serializable
 data class SimulationModel(
-    val a: Int
-    //val simulationDataList: List<SimulationActor>
+    val simulationDataList: List<SimulationActor>
 )
 
-@Serializable
 data class SimulationActor(
-    //val shape: Shape,
+    val shape: Shape,
     val trace: Trace,
-    //val rotation: Rotation,
+    val rotation: Rotation,
     val constantSpeed: Boolean,
     val constantAcceleration: Boolean
 )
 
-@Serializable
 sealed interface Rotation {
-    @Serializable
     object Fixed : Rotation
-    @Serializable
     data class Rotating(val maxDegrees: Float, val isClockwise: Boolean)
 }
 
-@Serializable
-enum class Trace {
-    FIXED, BORDERS, DIAGONAL, RANDOMIZED
+enum class Trace(val description: String) {
+    FIXED("Fixed"),
+    BORDERS("Borders"),
+    DIAGONAL("Diagonals"),
+    RANDOMIZED("Randomized")
+}
+
+enum class ShapeCustomization {
+    RECT, CUSTOM_SHAPE, POLYGON, ELLIPSE, SEGMENT
 }
