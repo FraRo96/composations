@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -85,6 +87,7 @@ fun PreparationScreen(
     Column(
         modifier = Modifier
             .padding(start = 20.dp, end = 20.dp)
+            .verticalScroll(rememberScrollState())
             .fillMaxSize(),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -121,8 +124,6 @@ fun PreparationScreen(
                     modifier = Modifier.size(ButtonDefaults.IconSize),
                     contentDescription = "Go to previous particle"
                 )
-                Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Previous")
             }
             Spacer(modifier = Modifier.weight(0.1f))
             OutlinedButton(onClick = {
@@ -133,8 +134,6 @@ fun PreparationScreen(
                     modifier = Modifier.size(ButtonDefaults.IconSize),
                     contentDescription = "Clear particle"
                 )
-                Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Clear")
             }
             Spacer(modifier = Modifier.weight(0.1f))
             OutlinedButton(onClick = {
@@ -145,8 +144,6 @@ fun PreparationScreen(
                     modifier = Modifier.size(ButtonDefaults.IconSize),
                     contentDescription = "Go to next particle"
                 )
-                Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Next")
             }
         }
         Spacer(modifier = Modifier.height(5.dp))
@@ -168,100 +165,94 @@ fun PreparationScreen(
                 isClockwise[currentParticle] = dir
             }
         )
-        Spacer(modifier = Modifier.height(20.dp))
-        SizeSlider(
-            rangeSliderPosition = sizeSliderRange[currentParticle]!!,
-            singleSliderPosition = sizeSliderSingle[currentParticle]!!,
-            rangeCallback = { range -> sizeSliderRange[currentParticle] = range },
-            singleCallback = { value -> sizeSliderSingle[currentParticle] = value },
-            shape = shape[currentParticle]!!
-        )
         Spacer(modifier = Modifier.height(30.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly
+        Column(
         ) {
-            Text(
-                text = "Shape: ",
-                fontWeight = FontWeight.Bold
-            )
-            Box(
-                //modifier = Modifier.padding(top = 10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.clickable {
-                        isShapeDropDownExpanded[currentParticle] = true
-                    }
+            Row {
+                Text(
+                    text = "Shape: ",
+                    fontWeight = FontWeight.Bold
+                )
+                Box(
+                    //modifier = Modifier.padding(top = 10.dp)
                 ) {
-                    Text(text = shape[currentParticle]!!.description)
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Dropdown of shapes",
-                        //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
-                    )
-                }
-                DropdownMenu(
-                    expanded = isShapeDropDownExpanded[currentParticle]!!,
-                    onDismissRequest = {
-                        isShapeDropDownExpanded[currentParticle] = false
+                    Row(
+                        modifier = Modifier.clickable {
+                            isShapeDropDownExpanded[currentParticle] = true
+                        }
+                    ) {
+                        Text(text = shape[currentParticle]!!.description)
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Dropdown of shapes",
+                            //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
+                        )
                     }
-                ) {
-                    Shape.getAllShapes(200F).forEachIndexed { _, shapeValue ->
-                        if (!(shapeValue is Shape.Unspecified)) {
+                    DropdownMenu(
+                        expanded = isShapeDropDownExpanded[currentParticle]!!,
+                        onDismissRequest = {
+                            isShapeDropDownExpanded[currentParticle] = false
+                        }
+                    ) {
+                        Shape.getAllShapes(200F).forEachIndexed { _, shapeValue ->
+                            if (!(shapeValue is Shape.Unspecified)) {
 
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(text = shapeValue.description)
+                                    },
+                                    onClick = {
+                                        isShapeDropDownExpanded[currentParticle] = false
+                                        shape[currentParticle] = shapeValue
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Row {
+                Text(
+                    text = "Trace: ",
+                    fontWeight = FontWeight.Bold
+                )
+                Box(
+                    //modifier = Modifier.padding(top = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.clickable {
+                            isTraceDropDownExpanded[currentParticle] = true
+                        }
+                    ) {
+                        Text(text = trace[currentParticle]!!.description)
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Dropdown of traces",
+                            //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = isTraceDropDownExpanded[currentParticle]!!,
+                        onDismissRequest = {
+                            isTraceDropDownExpanded[currentParticle] = false
+                        }
+                    ) {
+                        Trace.values().forEachIndexed { index, traceValue ->
                             DropdownMenuItem(
                                 text = {
-                                    Text(text = shapeValue.description)
+                                    Text(text = traceValue.description)
                                 },
                                 onClick = {
-                                    isShapeDropDownExpanded[currentParticle] = false
-                                    shape[currentParticle] = shapeValue
+                                    isTraceDropDownExpanded[currentParticle] = false
+                                    trace[currentParticle] = traceValue
                                 }
                             )
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.weight(0.1f))
-            Text(
-                text = "Trace: ",
-                fontWeight = FontWeight.Bold
-            )
-            Box(
-                //modifier = Modifier.padding(top = 10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.clickable {
-                        isTraceDropDownExpanded[currentParticle] = true
-                    }
-                ) {
-                    Text(text = trace[currentParticle]!!.description)
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Dropdown of traces",
-                        //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
-                    )
-                }
-                DropdownMenu(
-                    expanded = isTraceDropDownExpanded[currentParticle]!!,
-                    onDismissRequest = {
-                        isTraceDropDownExpanded[currentParticle] = false
-                    }
-                ) {
-                    Trace.values().forEachIndexed { index, traceValue ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(text = traceValue.description)
-                            },
-                            onClick = {
-                                isTraceDropDownExpanded[currentParticle] = false
-                                trace[currentParticle] = traceValue
-                            }
-                        )
-                    }
-                }
             }
-        }
         Spacer(modifier = Modifier.height(15.dp))
 
         Button(
@@ -371,57 +362,6 @@ fun PreparationScreen(
             }
         } */
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SizeSlider(
-    rangeSliderPosition: ClosedFloatingPointRange<Float>,
-    singleSliderPosition: Float,
-    rangeCallback: (ClosedFloatingPointRange<Float>) -> Unit,
-    singleCallback: (Float) -> Unit,
-    shape: Shape
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        when (shape) {
-            is Shape.RegularPolygon, is Shape.Segment, is Shape.CustomPolygonalShape -> {
-
-                SliderTitle(text = "Size")
-                Slider(
-                    value = singleSliderPosition,
-                    //steps = 1000,
-                    onValueChange = { value -> singleCallback(value) },
-                    valueRange = 1f..100f,
-                    onValueChangeFinished = {
-                        // launch some business logic update with the state you hold
-                        // viewModel.updateSelectedSliderValue(sliderPosition)
-                    },
-                )
-                SliderSubText(
-                    text = singleSliderPosition.toString(),
-                )
-            }
-
-            else -> {
-
-                SliderTitle(text = "Length - Height")
-                RangeSlider(
-                    value = rangeSliderPosition,
-                    //steps = 1000,
-                    onValueChange = { range -> rangeCallback(range) },
-                    valueRange = 1f..100f,
-                    onValueChangeFinished = {
-                        // launch some business logic update with the state you hold
-                        // viewModel.updateSelectedSliderValue(sliderPosition)
-                    },
-                )
-                SliderSubText(
-                    text = rangeSliderPosition.toString(),
-                )
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -512,7 +452,7 @@ fun SliderSubText(text: String) {
 @Composable
 fun PreparationScreenTitle() {
     Text(
-        text = "Set up simulation",
+        text = "Setup",
         style = MaterialTheme.typography.titleLarge,
         fontSize = 40.sp,
         modifier = Modifier
