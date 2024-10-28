@@ -21,19 +21,45 @@ data class ScreenPosition(
     val heading: Float
 )
 
-sealed interface Shape {
-    object Unspecified : Shape
-    data class Segment(val size: Size.SingleAxisMeasure? = null) : Shape
-    data class Rectangle(val size: Size.DoubleAxisMeasure? = null) : Shape
+sealed class Shape(val description: String) {
+    object Unspecified : Shape("Unspecified")
+    data class Segment(val size: Size.SingleAxisMeasure = Size.SingleAxisMeasure(1F)) : Shape("Segment")
+    data class Rectangle(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(10F, 10F)) : Shape("Rectangle")
     data class RegularPolygon(
         val nVertices: Int,
-        val size: Size.SingleAxisMeasure? = null
-    ) : Shape
-    data class Ellipse(val size: Size.DoubleAxisMeasure? = null) : Shape
+        val size: Size.SingleAxisMeasure = Size.SingleAxisMeasure(10F)
+    ) : Shape("Regular polygon")
+
+    data class Ellipse(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(1F, 1F)) : Shape("Ellipse")
     data class CustomPolygonalShape(
         val path: Path,
-        val size: Size.RescaleFactor? = null
-    ) : Shape
+        val size: Size.RescaleFactor = Size.RescaleFactor(1F)
+    ) : Shape("Custom path")
+
+    companion object {
+        fun getAllShapes(scaleFactor: Float): List<Shape> {
+            return listOf(
+                Unspecified,
+                Segment(
+                    size = Size.SingleAxisMeasure(scaleFactor)
+                ),
+                Rectangle(
+                    size = Size.DoubleAxisMeasure(scaleFactor, scaleFactor)
+                ),
+                RegularPolygon(
+                    nVertices = 6,
+                    size = Size.SingleAxisMeasure(scaleFactor)
+                ), // Example with 5 vertices
+                Ellipse(
+                    size = Size.DoubleAxisMeasure(scaleFactor, scaleFactor)
+                ),
+                CustomPolygonalShape(
+                    path = Path(),
+                    size = Size.RescaleFactor(scaleFactor)
+                ) // Assuming default Path() is empty
+            )
+        }
+    }
 }
 
 sealed interface Size {

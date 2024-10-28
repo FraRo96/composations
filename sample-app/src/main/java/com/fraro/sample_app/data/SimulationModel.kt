@@ -26,7 +26,3 @@ enum class Trace(val description: String) {
     DIAGONAL("Diagonals"),
     RANDOMIZED("Randomized")
 }
-
-enum class ShapeCustomization {
-    RECT, CUSTOM_SHAPE, POLYGON, ELLIPSE, SEGMENT
-}
