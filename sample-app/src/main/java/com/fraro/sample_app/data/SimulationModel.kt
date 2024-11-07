@@ -1,24 +1,19 @@
 package com.fraro.sample_app.data
 
+import androidx.compose.ui.graphics.Color
 import com.fraro.composable_realtime_animations.data.models.Shape
 import kotlinx.serialization.Serializable
-
-data class SimulationModel(
-    val simulationDataList: List<SimulationActor>
-)
+import java.util.concurrent.ConcurrentHashMap
 
 data class SimulationActor(
     val shape: Shape,
     val trace: Trace,
-    val rotation: Rotation,
-    val constantSpeed: Boolean,
-    val constantAcceleration: Boolean
-)
+    val rotation: Pair<Int, Int>,
+    val color: Color,
+    val isRotationClockwise: Boolean,
+    val speed: Pair<Int, Int>,
 
-sealed interface Rotation {
-    object Fixed : Rotation
-    data class Rotating(val maxDegrees: Float, val isClockwise: Boolean)
-}
+    )
 
 enum class Trace(val description: String) {
     FIXED("Fixed"),

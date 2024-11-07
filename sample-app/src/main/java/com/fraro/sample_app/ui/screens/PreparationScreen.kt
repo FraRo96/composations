@@ -1,5 +1,8 @@
 package com.fraro.sample_app.ui.screens
 
+import android.graphics.PointF
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +25,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxColors
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,22 +48,38 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.plus
+import androidx.core.graphics.times
+import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import com.fraro.composable_realtime_animations.data.models.Shape
-import com.fraro.composable_realtime_animations.data.models.Size
+import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasure
+import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
+import com.fraro.sample_app.ui.theme.Indigo
+import com.fraro.sample_app.ui.theme.PinkOrange
 import com.fraro.sample_app.ui.viewmodels.MainViewModel
+import java.util.HashMap
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,19 +91,17 @@ fun PreparationScreen(
     val lifecycleOwner = context as ViewModelStoreOwner
     val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]
 
-    var nVertices = remember { mutableStateMapOf(Pair(0L, 6)) }
-    var nShapes = remember { mutableStateMapOf(Pair(0L, 6)) }
-    val isTraceDropDownExpanded = remember { mutableStateMapOf(Pair(0L, false)) }
-    val isShapeDropDownExpanded = remember { mutableStateMapOf(Pair(0L, false)) }
-    val trace = remember { mutableStateMapOf(Pair(0L, Trace.DIAGONAL)) }
-    val shape = remember { mutableStateMapOf<Long, Shape>(Pair(0L, Shape.RegularPolygon(
-        6, Size.SingleAxisMeasure(200F)))) }
-    val speedSliderRange = remember { mutableStateMapOf(Pair(0L, 0f..100f)) }
-    val sizeSliderRange = remember { mutableStateMapOf(Pair(0L, 1f..100f)) }
-    val sizeSliderSingle = remember { mutableStateMapOf(Pair(0L, 1f)) }
-    val rotationSliderRange = remember { mutableStateMapOf(Pair(0L, 0f..360f)) }
-    val isClockwise = remember { mutableStateMapOf(Pair(0L, true)) }
+    var isTraceDropDownExpanded by remember { mutableStateOf(false) }
+    var isShapeDropDownExpanded by remember { mutableStateOf(false) }
+    var trace by remember { mutableStateOf(Trace.DIAGONAL) }
+    var shape: Shape by remember { mutableStateOf(Shape.RegularPolygon(6, SingleAxisMeasure(200F))) }
+    var speedSliderRange by remember { mutableStateOf(0f..100f) }
+    var rotationSliderRange by remember { mutableStateOf(0f..360f) }
+    var isClockwise by remember { mutableStateOf(true) }
     var currentParticle by remember { mutableStateOf(0L) }
+    var shapeColor by remember { mutableStateOf(Indigo) }
+
+    //val viewModel.simulationModel = remember { HashMap<Long, SimulationActor>() }
 
     Column(
         modifier = Modifier
@@ -93,20 +112,70 @@ fun PreparationScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         PreparationScreenTitle()
+        Row(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Shape: ",
+                fontWeight = FontWeight.Bold
+            )
+            Box(
+                //modifier = Modifier.padding(top = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.clickable {
+                        isShapeDropDownExpanded = true
+                    }
+                ) {
+                    Text(text = shape!!.description)
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Dropdown of shapes",
+                        //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
+                    )
+                }
+                DropdownMenu(
+                    expanded = isShapeDropDownExpanded!!,
+                    onDismissRequest = {
+                        isShapeDropDownExpanded = false
+                    }
+                ) {
+                    Shape.getAllShapes(200F).forEachIndexed { _, shapeValue ->
+                        if (!(shapeValue is Shape.Unspecified)) {
 
+                            DropdownMenuItem(
+                                text = {
+                                    Text(text = shapeValue.description)
+                                },
+                                onClick = {
+                                    isShapeDropDownExpanded = false
+                                    shape = shapeValue
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        OutlinedButton(
+            modifier = Modifier.padding(bottom = 10.dp),
+            border = BorderStroke(1.dp, shapeColor),
+            onClick = { shapeColor = generateRandomColor() }) {
+
+                Text(text ="Change color")
+        }
         GeometricThumbnail(
-            shape = shape[currentParticle]!!,
+            shape = shape,
+            shapeColor = shapeColor,
             changeNVerticesCallback = { delta ->
-                val polygon = shape[currentParticle]!! as Shape.RegularPolygon
+                val polygon = shape as Shape.RegularPolygon
                 if (delta == 1 && polygon.nVertices < 20) {
 
-                    shape[currentParticle] = Shape.RegularPolygon(
-                        nVertices = (shape[currentParticle]!! as Shape.RegularPolygon).nVertices + 1,
+                    shape = Shape.RegularPolygon(
+                        nVertices = (shape!! as Shape.RegularPolygon).nVertices + 1,
                         size = polygon.size
                     )
                 } else if (delta == -1 && polygon.nVertices > 3) {
 
-                    shape[currentParticle] = Shape.RegularPolygon(
+                    shape = Shape.RegularPolygon(
                         nVertices = polygon.nVertices - 1,
                         size = polygon.size
                     )
@@ -116,9 +185,20 @@ fun PreparationScreen(
 
         Row(
         ) {
-            OutlinedButton(onClick = {
-                currentParticle--
-            }) {
+            OutlinedButton(
+                onClick = {
+                    currentParticle--
+                    isTraceDropDownExpanded = false
+                    isShapeDropDownExpanded = false
+                    trace = viewModel.simulationModel[currentParticle]!!.trace
+                    shape = viewModel.simulationModel[currentParticle]!!.shape
+                    speedSliderRange = viewModel.simulationModel[currentParticle]!!.speed.first.toFloat()..viewModel.simulationModel[currentParticle]!!.speed.second.toFloat()
+                    rotationSliderRange = viewModel.simulationModel[currentParticle]!!.rotation.first.toFloat()..viewModel.simulationModel[currentParticle]!!.rotation.second.toFloat()
+                    isClockwise = viewModel.simulationModel[currentParticle]!!.isRotationClockwise
+                    shapeColor = viewModel.simulationModel[currentParticle]!!.color
+                },
+                enabled = (currentParticle > 0)
+            ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowLeft,
                     modifier = Modifier.size(ButtonDefaults.IconSize),
@@ -126,18 +206,38 @@ fun PreparationScreen(
                 )
             }
             Spacer(modifier = Modifier.weight(0.1f))
-            OutlinedButton(onClick = {
-                currentParticle++
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    modifier = Modifier.size(ButtonDefaults.IconSize),
-                    contentDescription = "Clear particle"
-                )
-            }
+            Text(text = "#${currentParticle + 1}", style = MaterialTheme.typography.titleLarge, color = shapeColor)
             Spacer(modifier = Modifier.weight(0.1f))
             OutlinedButton(onClick = {
+                viewModel.simulationModel[currentParticle] = SimulationActor(
+                    shape = shape,
+                    trace = trace,
+                    rotation = Pair(rotationSliderRange.start.roundToInt(), rotationSliderRange.endInclusive.roundToInt()),
+                    speed = Pair(speedSliderRange.start.roundToInt(), speedSliderRange.endInclusive.roundToInt()),
+                    isRotationClockwise = isClockwise,
+                    color = shapeColor
+                )
                 currentParticle++
+                if (currentParticle < viewModel.simulationModel.size) {
+                    isTraceDropDownExpanded = false
+                    isShapeDropDownExpanded = false
+                    trace = viewModel.simulationModel[currentParticle]!!.trace
+                    shape = viewModel.simulationModel[currentParticle]!!.shape
+                    speedSliderRange = viewModel.simulationModel[currentParticle]!!.speed.first.toFloat()..viewModel.simulationModel[currentParticle]!!.speed.second.toFloat()
+                    rotationSliderRange = viewModel.simulationModel[currentParticle]!!.rotation.first.toFloat()..viewModel.simulationModel[currentParticle]!!.rotation.second.toFloat()
+                    isClockwise = viewModel.simulationModel[currentParticle]!!.isRotationClockwise
+                    shapeColor = viewModel.simulationModel[currentParticle]!!.color
+                }
+                else {
+                    isTraceDropDownExpanded = false
+                    isShapeDropDownExpanded = false
+                    trace = Trace.DIAGONAL
+                    shape = Shape.RegularPolygon(6, SingleAxisMeasure(200F))
+                    speedSliderRange = 0f..100f
+                    rotationSliderRange = 0f..360f
+                    isClockwise = true
+                    shapeColor = Indigo
+                }
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
@@ -149,69 +249,28 @@ fun PreparationScreen(
         Spacer(modifier = Modifier.height(5.dp))
 
         SpeedSlider(
-            sliderPosition = speedSliderRange[currentParticle]!!,
+            sliderPosition = speedSliderRange,
+            color = shapeColor,
             callback = { range ->
-                speedSliderRange[currentParticle] = range
+                speedSliderRange = range
             }
         )
         Spacer(modifier = Modifier.height(25.dp))
         RotationSlider(
-            sliderPosition = rotationSliderRange[currentParticle]!!,
-            isClockwise = isClockwise[currentParticle]!!,
+            sliderPosition = rotationSliderRange,
+            color = shapeColor,
+            isClockwise = isClockwise,
             rangeCallback = { range ->
-                rotationSliderRange[currentParticle] = range
+                rotationSliderRange = range
             },
             directionCallback = { dir ->
-                isClockwise[currentParticle] = dir
+                isClockwise = dir
             }
         )
         Spacer(modifier = Modifier.height(30.dp))
 
         Column(
         ) {
-            Row {
-                Text(
-                    text = "Shape: ",
-                    fontWeight = FontWeight.Bold
-                )
-                Box(
-                    //modifier = Modifier.padding(top = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.clickable {
-                            isShapeDropDownExpanded[currentParticle] = true
-                        }
-                    ) {
-                        Text(text = shape[currentParticle]!!.description)
-                        Icon(
-                            Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Dropdown of shapes",
-                            //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = isShapeDropDownExpanded[currentParticle]!!,
-                        onDismissRequest = {
-                            isShapeDropDownExpanded[currentParticle] = false
-                        }
-                    ) {
-                        Shape.getAllShapes(200F).forEachIndexed { _, shapeValue ->
-                            if (!(shapeValue is Shape.Unspecified)) {
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(text = shapeValue.description)
-                                    },
-                                    onClick = {
-                                        isShapeDropDownExpanded[currentParticle] = false
-                                        shape[currentParticle] = shapeValue
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
             Row {
                 Text(
                     text = "Trace: ",
@@ -222,10 +281,10 @@ fun PreparationScreen(
                 ) {
                     Row(
                         modifier = Modifier.clickable {
-                            isTraceDropDownExpanded[currentParticle] = true
+                            isTraceDropDownExpanded = true
                         }
                     ) {
-                        Text(text = trace[currentParticle]!!.description)
+                        Text(text = trace!!.description)
                         Icon(
                             Icons.Default.KeyboardArrowDown,
                             contentDescription = "Dropdown of traces",
@@ -233,9 +292,9 @@ fun PreparationScreen(
                         )
                     }
                     DropdownMenu(
-                        expanded = isTraceDropDownExpanded[currentParticle]!!,
+                        expanded = isTraceDropDownExpanded,
                         onDismissRequest = {
-                            isTraceDropDownExpanded[currentParticle] = false
+                            isTraceDropDownExpanded = false
                         }
                     ) {
                         Trace.values().forEachIndexed { index, traceValue ->
@@ -244,8 +303,8 @@ fun PreparationScreen(
                                     Text(text = traceValue.description)
                                 },
                                 onClick = {
-                                    isTraceDropDownExpanded[currentParticle] = false
-                                    trace[currentParticle] = traceValue
+                                    isTraceDropDownExpanded = false
+                                    trace = traceValue
                                 }
                             )
                         }
@@ -263,110 +322,29 @@ fun PreparationScreen(
         }
     }
 }
-        /*Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    //.align(Alignment.CenterVertically)
-                    .background(Color.White, RoundedCornerShape(10))
-                    .padding(30.dp)
-                    .fillMaxHeight()
-            ) {
-                GeometricThumbnail(shape, nVertices)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(onClick = { if (nShapes < 10000) nShapes++ }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "add")
-                }
-                Column(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(30))
-                        //.padding(5.dp)
-                        .fillMaxHeight()
-                ) {
-                    Text(text = "${nShapes}")
-                }
-                IconButton(onClick = { if (nShapes > 0) nShapes-- }) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "subtract")
-                }
-            }
 
-            //Spacer(modifier = Modifier.fillMaxWidth(0.1f))
-            Column(
-                verticalArrangement = Arrangement.SpaceEvenly,
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(text = "Movement", fontWeight = FontWeight.Bold)
-                Box(
-                    //modifier = Modifier.padding(top = 10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.clickable {
-                            isDropDownExpanded = true
-                        }
-                    ) {
-                        Text(text = Trace.BORDERS.description)
-                        Icon(
-                            Icons.Default.KeyboardArrowDown,
-                            contentDescription = "dropdown of traces",
-                            //modifier = Modifier.background(Color.White, RoundedCornerShape(70))
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = isDropDownExpanded,
-                        onDismissRequest = {
-                            isDropDownExpanded = false
-                        }) {
-                        Trace.values().forEachIndexed { index, trace ->
-                            DropdownMenuItem(text = {
-                                Text(text = trace.description)
-                            },
-                                onClick = {
-                                    isDropDownExpanded = false
-                                    itemPosition = index
-                                })
-                        }
-                    }
-                }
-                Row() {
-                    CompositionLocalProvider(
-                        LocalMinimumTouchTargetEnforcement provides false,
-                    ) {
-                        IconButton(
-                            onClick = { if (nVertices > 0) nVertices-- },
-                            modifier = Modifier.then(Modifier.size(40.dp))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "clear",
-                                tint = Color.Black.copy(alpha = 0.45F)
-                            )
-                        }
-                        IconButton(
-                            onClick = { if (nVertices < 20) nVertices++ },
-                            modifier = Modifier.then(Modifier.size(40.dp))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "add",
-                                tint = Color.Black.copy(alpha = 0.45F)
-                            )
-                        }
-                    }
-                }
-            }
-        } */
+fun generateRandomColor(): Color {
+    val base = Random.nextFloat() * 0.5f + 0.25f // Generates a base around mid-range for low saturation
+    val variation = Random.nextFloat() * 0.2f    // Slightly larger variation for more color diversity
 
+    // Randomly adjust each component by a small variation to cover more color shades
+    val red = (base + if (Random.nextBoolean()) variation else -variation).coerceIn(0f, 1f)
+    val green = (base + if (Random.nextBoolean()) variation else -variation).coerceIn(0f, 1f)
+    val blue = (base + if (Random.nextBoolean()) variation else -variation).coerceIn(0f, 1f)
+
+    return Color(
+        red = red,
+        green = green,
+        blue = blue,
+        alpha = 1f
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpeedSlider(
     sliderPosition: ClosedFloatingPointRange<Float>,
+    color: Color,
     callback: (ClosedFloatingPointRange<Float>) -> Unit
 ) {
     Column(
@@ -375,16 +353,20 @@ fun SpeedSlider(
         SliderTitle(text = "Speed (dp/s)")
         RangeSlider(
             value = sliderPosition,
+            colors = SliderDefaults.colors(
+                activeTrackColor = color,
+                thumbColor = color.darker(),
+            ),
             //steps = 1000,
             onValueChange = { range -> callback(range) },
-            valueRange = 1f..100f,
+            valueRange = 0f..100f,
             onValueChangeFinished = {
                 // launch some business logic update with the state you hold
                 // viewModel.updateSelectedSliderValue(sliderPosition)
             },
         )
         SliderSubText(
-            text = sliderPosition.toString(),
+            text = "Min: ${sliderPosition.start.roundToInt()}, Max: ${sliderPosition.endInclusive.roundToInt()}",
         )
     }
 }
@@ -393,6 +375,7 @@ fun SpeedSlider(
 @Composable
 fun RotationSlider(
     sliderPosition: ClosedFloatingPointRange<Float>,
+    color: Color,
     isClockwise: Boolean,
     rangeCallback: (ClosedFloatingPointRange<Float>) -> Unit,
     directionCallback: (Boolean) -> Unit
@@ -425,18 +408,26 @@ fun RotationSlider(
                 RangeSlider(
                     value = sliderPosition,
                     modifier = Modifier.padding(end = 20.dp),
-                    //steps = 1000,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = color,
+                        thumbColor = color.darker()
+                    ),
+                    steps = 360,
                     onValueChange = { range -> rangeCallback(range) },
-                    valueRange = 1f..100f,
+                    valueRange = 0f..360f,
                     onValueChangeFinished = {
                         // launch some business logic update with the state you hold
                         // viewModel.updateSelectedSliderValue(sliderPosition)
                     },
                 )
-                Checkbox(checked = isClockwise, onCheckedChange = { dir -> directionCallback(dir) })
+                Checkbox(
+                    checked = isClockwise,
+                    onCheckedChange = { dir -> directionCallback(dir) },
+                    colors = CheckboxDefaults.colors(checkedColor = color.darker())
+                )
             }
             SliderSubText(
-                text = sliderPosition.toString(),
+                text = "Min: ${sliderPosition.start.roundToInt()}, Max: ${sliderPosition.endInclusive.roundToInt()}"
             )
         }
 
@@ -483,13 +474,11 @@ fun SliderSubTitle(text: String) {
 }
 
 @Composable
-fun GeometricThumbnail(shape: Shape, changeNVerticesCallback: (Int) -> Unit) {
-    /*Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {*/
+fun GeometricThumbnail(shape: Shape, shapeColor: Color, changeNVerticesCallback: (Int) -> Unit) {
+
     when (shape) {
         is Shape.RegularPolygon -> {
-            val halfSizeDp = (shape.size!!.size / 2F).dp
+            val halfSizeDp = (shape.size.size / 2F).dp
             Row(horizontalArrangement = Arrangement.SpaceEvenly) {
                 IconButton(
                     onClick = { changeNVerticesCallback(-1) },
@@ -527,7 +516,7 @@ fun GeometricThumbnail(shape: Shape, changeNVerticesCallback: (Int) -> Unit) {
                                     .toPath()
                                     .asComposePath()
                                 onDrawBehind {
-                                    drawPath(roundedPolygonPath, color = Color.Blue)
+                                    drawPath(roundedPolygonPath, color = shapeColor)
                                 }
                             }
                         //.fillMaxHeight(0.5f)
@@ -544,50 +533,174 @@ fun GeometricThumbnail(shape: Shape, changeNVerticesCallback: (Int) -> Unit) {
                 }
             }
         }
+        is Shape.Ellipse -> {
+            Column(modifier = Modifier.padding(bottom = 100.dp)) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+
+                    val radiusX = 200F
+                    val radiusY = 100F
+
+                    drawOval(
+                        color = shapeColor,
+                        topLeft = Offset(size.width / 2 - radiusX, 0F),
+                        size = Size(width = radiusX * 2, height = radiusY * 2),
+                        style = Fill
+                    )
+                }
+            }
+        }
+        is Shape.Rectangle -> {
+            Column(modifier = Modifier.height(100.dp)) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+
+                    val radiusX = 200F
+                    val radiusY = 100F
+
+                    drawRect(
+                        color = shapeColor,
+                        topLeft = Offset(size.width / 2 - radiusX, 0F),
+                        size = Size(width = radiusX * 2, height = radiusY * 2),
+                        style = Fill
+                    )
+                }
+            }
+        }
+        is Shape.Segment -> {
+            Column(modifier = Modifier.height(100.dp), verticalArrangement = Arrangement.Center) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+
+                    val length = 200F
+
+                    drawLine(
+                        color = shapeColor,
+                        start = Offset(size.width / 2 - length, 100f),
+                        end = Offset(size.width / 2 + length, 25f),
+                        strokeWidth = 10F
+                    )
+                }
+            }
+        }
+        is Shape.CustomPolygonalShape -> {
+            val vertices = remember {
+                val radius = 1f
+                val radiusSides = 0.8f
+                val innerRadius = .1f
+                floatArrayOf(
+                    radialToCartesian(radiusSides, 0f.toRadians()).x,
+                    radialToCartesian(radiusSides, 0f.toRadians()).y,
+                    radialToCartesian(radius, 90f.toRadians()).x,
+                    radialToCartesian(radius, 90f.toRadians()).y,
+                    radialToCartesian(radiusSides, 180f.toRadians()).x,
+                    radialToCartesian(radiusSides, 180f.toRadians()).y,
+                    radialToCartesian(radius, 250f.toRadians()).x,
+                    radialToCartesian(radius, 250f.toRadians()).y,
+                    radialToCartesian(innerRadius, 270f.toRadians()).x,
+                    radialToCartesian(innerRadius, 270f.toRadians()).y,
+                    radialToCartesian(radius, 290f.toRadians()).x,
+                    radialToCartesian(radius, 290f.toRadians()).y,
+                )
+            }
+
+            val rounding = remember {
+                val roundingNormal = 0.6f
+                val roundingNone = 0f
+                listOf(
+                    CornerRounding(roundingNormal),
+                    CornerRounding(roundingNone),
+                    CornerRounding(roundingNormal),
+                    CornerRounding(roundingNormal),
+                    CornerRounding(roundingNone),
+                    CornerRounding(roundingNormal),
+                )
+            }
+
+            val polygon = remember(vertices, rounding) {
+                RoundedPolygon(
+                    vertices = vertices,
+                    perVertexRounding = rounding
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 30.dp)
+                    .drawWithCache {
+                        val roundedPolygonPath = polygon
+                            .toPath()
+                            .asComposePath()
+                        onDrawBehind {
+                            scale(100f, 100f) {
+                                translate(size.width * 0.5f, size.height * 0.5f) {
+                                    drawPath(roundedPolygonPath, color = Color(0xFFF15087))
+                                }
+                            }
+                        }
+                    }
+                    .size(70.dp)
+            )
+        }
         else -> {
 
         }
     }
 }
 
-@Composable
-fun Slider() {
-    var sliderPosition by remember {
-        mutableFloatStateOf(0f)
+internal fun Float.toRadians() = this * PI.toFloat() / 180f
+
+internal val PointZero = PointF(0f, 0f)
+internal fun radialToCartesian(
+    radius: Float,
+    angleRadians: Float,
+    center: PointF = PointZero
+) = directionVectorPointF(angleRadians) * radius + center
+
+internal fun directionVectorPointF(angleRadians: Float) =
+    PointF(cos(angleRadians), sin(angleRadians))
+
+
+fun Color.darker(): Color {
+    // Convert RGB to HSL
+    val r = red
+    val g = green
+    val b = blue
+
+    val max = maxOf(r, g, b)
+    val min = minOf(r, g, b)
+    val delta = max - min
+
+    val l = (max + min) / 2
+    var s = if (delta == 0f) 0f else delta / (1f - kotlin.math.abs(2 * l - 1))
+    var h = when (max) {
+        r -> (g - b) / delta % 6
+        g -> (b - r) / delta + 2
+        b -> (r - g) / delta + 4
+        else -> 0f
     }
-        Slider(
-            value = sliderPosition,
-            onValueChange = { sliderPosition = it },
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.secondary,
-                activeTrackColor = MaterialTheme.colorScheme.secondary,
-                inactiveTrackColor = MaterialTheme.colorScheme.secondaryContainer,
-            ),
-            steps = 3,
-            valueRange = 0f..50f
-        )
-        Text(text = sliderPosition.toString())
-}
 
-@Preview
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PreparationScreenPolygonPreview() {
+    h = (h * 60).let { if (it < 0) it + 360 else it }
 
-    Column(
-        modifier = Modifier
-            .padding(start = 20.dp, end = 20.dp)
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        PreparationScreenTitle()
+    // Reduce saturation and lightness by 20%
+    val newS = (s * 0.8f).coerceIn(0f, 1f)
+    val newL = (l * 0.8f).coerceIn(0f, 1f)
 
-        Column() {
-            Slider()
-            Slider()
-            Slider()
-        }
-        //GeometricThumbnail(shape = shape[current])
+    // Convert HSL back to RGB
+    val c = (1 - kotlin.math.abs(2 * newL - 1)) * newS
+    val x = c * (1 - kotlin.math.abs((h / 60) % 2 - 1))
+    val m = newL - c / 2
+
+    val (r1, g1, b1) = when {
+        h in 0f..60f -> Triple(c, x, 0f)
+        h in 60f..120f -> Triple(x, c, 0f)
+        h in 120f..180f -> Triple(0f, c, x)
+        h in 180f..240f -> Triple(0f, x, c)
+        h in 240f..300f -> Triple(x, 0f, c)
+        else -> Triple(c, 0f, x)
     }
+
+    return Color(
+        red = (r1 + m).coerceIn(0f, 1f),
+        green = (g1 + m).coerceIn(0f, 1f),
+        blue = (b1 + m).coerceIn(0f, 1f),
+        alpha = alpha
+    )
 }

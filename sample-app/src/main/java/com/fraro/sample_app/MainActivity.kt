@@ -9,8 +9,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
-import com.fraro.sample_app.data.SimulationModel
 import com.fraro.sample_app.ui.screens.PreparationScreen
 import com.fraro.sample_app.ui.screens.SimulationScreen
 import com.fraro.sample_app.ui.theme.ComposablerealtimeanimationsTheme

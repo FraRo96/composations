@@ -10,12 +10,16 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
+import com.fraro.sample_app.data.SimulationActor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 class MainViewModel : ViewModel() {
+
+    val simulationModel = HashMap<Long, SimulationActor>()
 
     private fun randomOffset(): Offset {
         val x = Random.nextFloat() * 1080  // assuming a screen width of 1080 pixels
