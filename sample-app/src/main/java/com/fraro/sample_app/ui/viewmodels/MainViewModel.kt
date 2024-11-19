@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
+import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,15 +24,20 @@ import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 class MainViewModel : ViewModel() {
 
     val simulationModel = HashMap<Long, SimulationActor>()
     lateinit var animationFlow: Flow<ParticleVisualizationModel>
-    val trajectories = HashMap<Long, List<ParticleVisualizationModel>>()
+    val trajectories = HashMap<Long, List<CalibrationPoint>>()
 
     var screenWidth: Float? = null
     var screenHeight: Float? = null
@@ -40,7 +46,7 @@ class MainViewModel : ViewModel() {
     fun startFlow() {
         generateTrajectories()
         // Process movements sequentially for each key, but different keys run concurrently
-        animationFlow = trajectories.entries.asFlow()
+        /*animationFlow = trajectories.entries.asFlow()
             .flatMapMerge { (key, particles) -> // Concurrently process each particle group
                 particles.asFlow()
                     .map { particle -> // Sequential processing within the same key
@@ -48,17 +54,18 @@ class MainViewModel : ViewModel() {
                         println("Emitting particle $key at offset ${particle.screenPosition.offset}")
                         particle
                     }
-            }
+            }*/
     }
 
     private fun generateTrajectories() {
         simulationModel.forEach {
             when (it.value.trace) {
                 Trace.DIAGONAL -> {
-                    trajectories[it.key] = generateDiagonalEquilateralSegmentsPoints(
+                    trajectories[it.key] = generateDiagonalNonHomogeneousSegmentsPoints(
                         screenWidth = screenWidth!!,
                         screenHeight = screenHeight!!,
-                        simulationActor = it.value,
+                        minSpeed = it.value.speed.first.toFloat(),
+                        maxSpeed = it.value.speed.second.toFloat(),
                         key = it.key
                     )
                 }
@@ -74,24 +81,73 @@ class MainViewModel : ViewModel() {
         screenHeight: Float,
         simulationActor: SimulationActor,
         key: Long,
-    ): List<ParticleVisualizationModel> {
-        val numberOfPoints = 100
+    ): List<CalibrationPoint> {
+        val numberOfPoints = 10
         return List(numberOfPoints) { index ->
             val fraction = index / (numberOfPoints - 1).toFloat()
-            ParticleVisualizationModel(
+            CalibrationPoint(
                 id = key,
-                duration = 1000,
-                shape = simulationActor.shape,
-                color = simulationActor.color,
-                screenPosition = ScreenPosition(
-                    offset = Offset(
+                offset = Offset(
                         x = screenWidth * fraction,
                         y = screenHeight * fraction
                     ),
-                    heading = 0F
-                )
+                order = index
             )
         }
     }
 
+    private fun generateDiagonalNonHomogeneousSegmentsPoints(
+        screenWidth: Float,
+        screenHeight: Float,
+        key: Long,
+        minSpeed: Float,
+        maxSpeed: Float
+    ): List<CalibrationPoint> {
+        // Calculate the diagonal angle theta
+        val theta = atan2(screenHeight, screenWidth)
+        val cosTheta = cos(theta)
+        val sinTheta = sin(theta)
+
+        val timeSteps = (maxSpeed - minSpeed).roundToInt()
+        // Speed increment per second to progress from minSpeed to maxSpeed
+        val speedIncrement = (maxSpeed - minSpeed) / timeSteps
+
+        // Initialize position
+        var currentX = 0f
+        var currentY = 0f
+
+        val result = mutableListOf<CalibrationPoint>()
+        var currentSpeed = minSpeed
+
+        var timeStep = 0
+        while (true) {
+            // Update current speed during the initial phase
+            if (timeStep < timeSteps) {
+                currentSpeed = minSpeed + timeStep * speedIncrement
+            }
+
+            // Calculate speed components
+            val horizontalSpeed = currentSpeed * cosTheta
+            val verticalSpeed = currentSpeed * sinTheta
+
+            // Update position
+            currentX += horizontalSpeed
+            currentY += verticalSpeed
+
+            // Stop generating points if the position goes out of bounds
+            if (currentX > screenWidth || currentY > screenHeight) return result
+
+            result.add(
+                CalibrationPoint(
+                    id = key,
+                    order = timeStep,
+                    offset = Offset(
+                        x = currentX,
+                        y = currentY
+                    )
+                )
+            )
+            timeStep++
+        }
+    }
 }
