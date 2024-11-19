@@ -10,6 +10,8 @@ data class ParticleVisualizationModel(
     val id: Long,
     val screenPosition: ScreenPosition,
     val duration: Int,
+    val maximumDelayFraction: Float = 0F,
+    val directionUnitVector: Offset? = null, //useful only if isForward is true in canvas
     val shape: Shape = Shape.Unspecified,
     val color: Color? = null,
     val bitmap: ImageBitmap? = null,

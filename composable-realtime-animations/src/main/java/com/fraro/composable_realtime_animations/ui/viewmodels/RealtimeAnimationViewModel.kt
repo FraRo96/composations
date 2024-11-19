@@ -67,13 +67,4 @@ class RealtimeAnimationViewModel : ViewModel() {
                 initialValue = null
             )
     }
-
-    /* suspend fun generateStream(
-        bufferedInputStream: BufferedInputStream,
-        callback: (BufferedInputStream) -> Flow<ParticleVisualizationModel>
-    ) {
-        animationDataStreamerUseCase.generateStream(bufferedInputStream, callback)
-    }*/
-
-
 }

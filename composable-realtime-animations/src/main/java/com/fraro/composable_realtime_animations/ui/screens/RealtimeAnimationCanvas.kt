@@ -1,7 +1,6 @@
 package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
-import android.graphics.PointF
 import com.fraro.composable_realtime_animations.data.models.Size.DoubleAxisMeasure
 import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasure
 import com.fraro.composable_realtime_animations.data.models.Size.RescaleFactor
@@ -21,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,9 +35,6 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.plus
-import androidx.core.graphics.times
-import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
@@ -53,15 +50,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.atan2
+import kotlin.math.roundToInt
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun RealtimeAnimationCanvas(
     animationFlow: Flow<ParticleVisualizationModel>,
-    samplingInterval: Int
+    samplingInterval: Int,
+    isForward: Boolean,
 ) {
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -107,53 +105,11 @@ fun RealtimeAnimationCanvas(
         )
 
         collectedFlow.value?.let { map ->
-            map.forEach { particle ->
-                val foundAnimation = particlesAnimMap[particle.key]
-                foundAnimation?.let { found ->
-                    val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
-                    val nextScreenPosition = particle.value.screenPosition
-                    CoroutineScope(Dispatchers.Main).launch {
-                        found.animatedOffset?.stop()
-                        found.animatedHeading?.stop()
-                    }
-                    val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
-                    val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
-
-                    particlesAnimMap[particle.key] = ParticleAnimationModel(
-                        prev = currentScreenPosition,
-                        next = nextScreenPosition,
-                        animatedHeading = animatedHeading,
-                        animatedOffset = animatedOffset,
-                        particleVisualizationModel = found.particleVisualizationModel,
-                        duration = particle.value.duration
-                    )
-
-                    val currParticle = particlesAnimMap[particle.key]
-                    currParticle?.let {
-                        coroutineScope.launch {
-                            animatedOffset.animateTo(
-                                nextScreenPosition.offset,
-                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                            )
-                        }
-                        coroutineScope.launch {
-                            animatedHeading.animateTo(
-                                nextScreenPosition.heading,
-                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                            )
-                        }
-                    }
-                }
-                if (foundAnimation == null) {
-                    particlesAnimMap[particle.key] = ParticleAnimationModel(
-                        prev = particle.value.screenPosition,
-                        next = particle.value.screenPosition,
-                        animatedHeading = null,
-                        animatedOffset = null,
-                        particleVisualizationModel = particle.value,
-                        duration = particle.value.duration
-                    )
-                }
+            if (isForward) {
+                createAnimationIntoFuture(map, particlesAnimMap, coroutineScope)
+            }
+            else {
+                createAnimationFromPast(map, particlesAnimMap, coroutineScope)
             }
         }
 
@@ -425,7 +381,122 @@ fun RealtimeAnimationCanvas(
             }
         }
     }
+}
 
+fun createAnimationFromPast(
+    map: ConcurrentHashMap<Long, ParticleVisualizationModel>,
+    particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
+    coroutineScope: CoroutineScope
+) {
+    map.forEach { particle ->
+        val foundAnimation = particlesAnimMap[particle.key]
+        foundAnimation?.let { found ->
+            val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
+            val nextUnscaledScreenPosition = particle.value.screenPosition
+            val nextScreenPosition = ScreenPosition(
+                offset = nextUnscaledScreenPosition.offset
+                        + (nextUnscaledScreenPosition.offset
+                        - currentScreenPosition.offset) * particle.value.maximumDelayFraction,
+                heading = nextUnscaledScreenPosition.heading
+                        + nextUnscaledScreenPosition.heading * particle.value.maximumDelayFraction
+            )
+            CoroutineScope(Dispatchers.Main).launch {
+                found.animatedOffset?.stop()
+                found.animatedHeading?.stop()
+            }
+            val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
+            val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
+
+            particlesAnimMap[particle.key] = ParticleAnimationModel(
+                prev = currentScreenPosition,
+                next = nextScreenPosition,
+                animatedHeading = animatedHeading,
+                animatedOffset = animatedOffset,
+                particleVisualizationModel = found.particleVisualizationModel,
+                duration = particle.value.duration + (particle.value.duration * particle.value.maximumDelayFraction).roundToInt()
+            )
+
+            val currParticle = particlesAnimMap[particle.key]
+            currParticle?.let {
+                coroutineScope.launch {
+                    animatedOffset.animateTo(
+                        nextScreenPosition.offset,
+                        tween(durationMillis = it.duration, easing = LinearEasing)
+                    )
+                }
+                coroutineScope.launch {
+                    animatedHeading.animateTo(
+                        nextScreenPosition.heading,
+                        tween(durationMillis = it.duration, easing = LinearEasing)
+                    )
+                }
+            }
+        }
+        if (foundAnimation == null) {
+            particlesAnimMap[particle.key] = ParticleAnimationModel(
+                prev = particle.value.screenPosition,
+                next = particle.value.screenPosition,
+                animatedHeading = null,
+                animatedOffset = null,
+                particleVisualizationModel = particle.value,
+                duration = particle.value.duration
+            )
+        }
+    }
+}
+
+fun createAnimationIntoFuture(
+    map: ConcurrentHashMap<Long, ParticleVisualizationModel>,
+    particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
+    coroutineScope: CoroutineScope
+) {
+    map.forEach { particle ->
+        particle.value.directionUnitVector?.let { direction ->
+            val foundAnimation = particlesAnimMap[particle.key]
+            val currentScreenPosition = findScreenPosition(foundAnimation)
+                ?: particle.value.screenPosition
+
+            val nextScreenPosition = ScreenPosition(
+                offset = currentScreenPosition.offset +
+                        Offset (
+                            particle.value.duration * direction.x,
+                            particle.value.duration * direction.y
+                        ),
+                heading = angleFromUnitVector(direction.x, direction.y)
+            )
+            CoroutineScope(Dispatchers.Main).launch {
+                foundAnimation?.animatedOffset?.stop()
+                foundAnimation?.animatedHeading?.stop()
+            }
+            val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
+            val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
+
+            particlesAnimMap[particle.key] = ParticleAnimationModel(
+                prev = currentScreenPosition,
+                next = nextScreenPosition,
+                animatedHeading = animatedHeading,
+                animatedOffset = animatedOffset,
+                particleVisualizationModel = particle.value,
+                duration = particle.value.duration + (particle.value.duration * particle.value.maximumDelayFraction).roundToInt()
+            )
+
+            val currParticle = particlesAnimMap[particle.key]
+            currParticle?.let {
+                coroutineScope.launch {
+                    animatedOffset.animateTo(
+                        nextScreenPosition.offset,
+                        tween(durationMillis = it.duration, easing = LinearEasing)
+                    )
+                }
+                coroutineScope.launch {
+                    animatedHeading.animateTo(
+                        nextScreenPosition.heading,
+                        tween(durationMillis = it.duration, easing = LinearEasing)
+                    )
+                }
+            }
+        }
+    }
 }
 
 fun findStaticOrAnimatedCurrentScreenPosition(found: ParticleAnimationModel): ScreenPosition {
@@ -438,4 +509,25 @@ fun findStaticOrAnimatedCurrentScreenPosition(found: ParticleAnimationModel): Sc
         currHeading = currentAnimatedHeading
     }
     return ScreenPosition(currOffset, currHeading)
+}
+
+fun findScreenPosition(found: ParticleAnimationModel?): ScreenPosition? {
+    found?.let {
+        var currOffset = it.next.offset
+        var currHeading = it.next.heading
+        it.animatedOffset?.value?.let { currentAnimatedOffset ->
+            currOffset = currentAnimatedOffset
+        }
+        it.animatedHeading?.value?.let { currentAnimatedHeading ->
+            currHeading = currentAnimatedHeading
+        }
+        return ScreenPosition(currOffset, currHeading)
+    }
+    return null
+}
+
+fun angleFromUnitVector(x: Float, y: Float): Float {
+    val angleRadians = atan2(y, x)
+    val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
+    return if (angleDegrees < 0) angleDegrees + 360 else angleDegrees
 }
