@@ -56,7 +56,9 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,6 +90,8 @@ fun PreparationScreen(
 ) {
 
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
     val lifecycleOwner = context as ViewModelStoreOwner
     val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]
 
@@ -101,7 +105,8 @@ fun PreparationScreen(
     var currentParticle by remember { mutableStateOf(0L) }
     var shapeColor by remember { mutableStateOf(Indigo) }
 
-    //val viewModel.simulationModel = remember { HashMap<Long, SimulationActor>() }
+    viewModel.screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
+    viewModel.screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
 
     Column(
         modifier = Modifier
@@ -315,7 +320,7 @@ fun PreparationScreen(
         Spacer(modifier = Modifier.height(15.dp))
 
         Button(
-            onClick = { /*TODO*/ },
+            onClick = { viewModel.startFlow(); onSubmitClick() },
             modifier = Modifier.padding(top = 25.dp)
         ) {
             Text(text = "Start animation!")

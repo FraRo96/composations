@@ -44,6 +44,10 @@ class RealtimeAnimationViewModel : ViewModel() {
             .map {
                 val snapshot = ConcurrentHashMap(particleMap)
                 particleMap.clear()
+                /*println("emissione $snapshot")
+                snapshot.values.forEach {
+                    println(it)
+                }*/
                 snapshot
             }
             .distinctUntilChanged()

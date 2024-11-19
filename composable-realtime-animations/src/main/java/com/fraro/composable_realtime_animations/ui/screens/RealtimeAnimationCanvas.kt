@@ -128,25 +128,23 @@ fun RealtimeAnimationCanvas(
                         duration = particle.value.duration
                     )
 
-                    coroutineScope.launch {
-                        val currParticle = particlesAnimMap[particle.key]
-                        currParticle?.let {
-                            launch {
-                                animatedOffset.animateTo(
-                                    nextScreenPosition.offset,
-                                    tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                                )
-                            }
-                            launch {
-                                animatedHeading.animateTo(
-                                    nextScreenPosition.heading,
-                                    tween(durationMillis = it.duration * 2, easing = LinearEasing)
-                                )
-                            }
+                    val currParticle = particlesAnimMap[particle.key]
+                    currParticle?.let {
+                        coroutineScope.launch {
+                            animatedOffset.animateTo(
+                                nextScreenPosition.offset,
+                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
+                            )
+                        }
+                        coroutineScope.launch {
+                            animatedHeading.animateTo(
+                                nextScreenPosition.heading,
+                                tween(durationMillis = it.duration * 2, easing = LinearEasing)
+                            )
                         }
                     }
-                } ?:
-                {
+                }
+                if (foundAnimation == null) {
                     particlesAnimMap[particle.key] = ParticleAnimationModel(
                         prev = particle.value.screenPosition,
                         next = particle.value.screenPosition,
