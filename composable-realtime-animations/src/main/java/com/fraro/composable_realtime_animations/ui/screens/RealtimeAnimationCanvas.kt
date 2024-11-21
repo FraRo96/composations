@@ -9,6 +9,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Scaffold
@@ -112,9 +113,23 @@ fun RealtimeAnimationCanvas(
                 createAnimationFromPast(map, particlesAnimMap, coroutineScope)
             }
         }
+        Box {
+            Canvas(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                collectedFlow.value?.let {
+                    it.forEach { (key, value) ->
+                        drawCircle(
+                            color = Color.Red.copy(alpha = 0.8f), // Default to black if color is null
+                            center = value.screenPosition.offset,
+                            radius = 20.dp.toPx()
+                        )
+                    }
+                }
+            }
+        }
 
-
-        Canvas(
+        /*Canvas(
             modifier = Modifier.fillMaxSize()
         ) {
 
@@ -379,7 +394,7 @@ fun RealtimeAnimationCanvas(
                     }
                 }
             }
-        }
+        } */
     }
 }
 

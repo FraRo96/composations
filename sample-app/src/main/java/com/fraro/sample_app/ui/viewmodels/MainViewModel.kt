@@ -1,17 +1,9 @@
 package com.fraro.sample_app.ui.viewmodels
 
-import android.app.Application
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
-import androidx.lifecycle.createSavedStateHandle
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
-import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
@@ -19,24 +11,18 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 class MainViewModel : ViewModel() {
 
     val simulationModel = HashMap<Long, SimulationActor>()
-    lateinit var animationFlow: Flow<ParticleVisualizationModel>
+    lateinit var backwardFlow: Flow<ParticleVisualizationModel>
     val trajectories = HashMap<Long, List<CalibrationPoint>>()
 
     var screenWidth: Float? = null
@@ -45,16 +31,42 @@ class MainViewModel : ViewModel() {
     @OptIn(ExperimentalCoroutinesApi::class)
     fun startFlow() {
         generateTrajectories()
-        // Process movements sequentially for each key, but different keys run concurrently
-        /*animationFlow = trajectories.entries.asFlow()
-            .flatMapMerge { (key, particles) -> // Concurrently process each particle group
-                particles.asFlow()
-                    .map { particle -> // Sequential processing within the same key
-                        delay(particle.duration.toLong()) // Delay based on the duration
-                        println("Emitting particle $key at offset ${particle.screenPosition.offset}")
-                        particle
+        val durations = generateDelays()
+        backwardFlow = trajectories.entries.asFlow()
+            .flatMapMerge { (key, points) ->
+                points.asFlow()
+                    .map { point ->
+                        val delayFractionPrev = durations[key - 1]?.getOrNull(point.order) ?: 0F
+                        val delayFraction = durations[key]?.getOrNull(point.order) ?: 0F
+                        val duration = 1000L + (1000 * delayFraction).toLong()
+                        val color = simulationModel[key]!!.color
+                        val shape = simulationModel[key]!!.shape
+                        delay(1000L + (1000 * delayFractionPrev).toLong())
+
+                        ParticleVisualizationModel(
+                            id = key,
+                            screenPosition = point.screenPosition,
+                            duration = duration.toInt(),
+                            maximumDelayFraction = delayFraction,
+                            directionUnitVector = null,
+                            shape = shape,
+                            color = color
+                        )
+
                     }
-            }*/
+            }
+    }
+
+    private fun generateDelays(): Map<Long, List<Float>> {
+        val map = HashMap<Long, MutableList<Float>>()
+        trajectories.keys.forEach { key ->
+            map[key] = mutableListOf()
+        }
+        map.values.forEach {
+            val delayFraction = Random.nextDouble(0.0, 1.0).toFloat()
+            it += delayFraction
+        }
+        return map
     }
 
     private fun generateTrajectories() {
@@ -76,7 +88,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun generateDiagonalEquilateralSegmentsPoints(
+    /*private fun generateDiagonalEquilateralSegmentsPoints(
         screenWidth: Float,
         screenHeight: Float,
         simulationActor: SimulationActor,
@@ -94,7 +106,7 @@ class MainViewModel : ViewModel() {
                 order = index
             )
         }
-    }
+    }*/
 
     private fun generateDiagonalNonHomogeneousSegmentsPoints(
         screenWidth: Float,
@@ -141,9 +153,12 @@ class MainViewModel : ViewModel() {
                 CalibrationPoint(
                     id = key,
                     order = timeStep,
-                    offset = Offset(
-                        x = currentX,
-                        y = currentY
+                    screenPosition = ScreenPosition(
+                        offset = Offset(
+                            x = currentX,
+                            y = currentY
+                        ),
+                        heading = 0F
                     )
                 )
             )
