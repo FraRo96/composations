@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,13 +33,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,6 +46,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.scale
@@ -74,9 +70,7 @@ import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasu
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
 import com.fraro.sample_app.ui.theme.Indigo
-import com.fraro.sample_app.ui.theme.PinkOrange
 import com.fraro.sample_app.ui.viewmodels.MainViewModel
-import java.util.HashMap
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -98,8 +92,8 @@ fun PreparationScreen(
     var isTraceDropDownExpanded by remember { mutableStateOf(false) }
     var isShapeDropDownExpanded by remember { mutableStateOf(false) }
     var trace by remember { mutableStateOf(Trace.DIAGONAL) }
-    var shape: Shape by remember { mutableStateOf(Shape.RegularPolygon(6, SingleAxisMeasure(200F))) }
-    var speedSliderRange by remember { mutableStateOf(0f..100f) }
+    var shape: Shape by remember { mutableStateOf(Shape.Ellipse()) }
+    var speedSliderRange by remember { mutableStateOf(1f..1000f) }
     var rotationSliderRange by remember { mutableStateOf(0f..360f) }
     var isClockwise by remember { mutableStateOf(true) }
     var currentParticle by remember { mutableStateOf(0L) }
@@ -107,6 +101,52 @@ fun PreparationScreen(
 
     viewModel.screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
     viewModel.screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+
+    val vertices = remember {
+        val radius = 1f
+        val radiusSides = 0.8f
+        val innerRadius = .1f
+        floatArrayOf(
+            radialToCartesian(radiusSides, 0f.toRadians()).x,
+            radialToCartesian(radiusSides, 0f.toRadians()).y,
+            radialToCartesian(radius, 90f.toRadians()).x,
+            radialToCartesian(radius, 90f.toRadians()).y,
+            radialToCartesian(radiusSides, 180f.toRadians()).x,
+            radialToCartesian(radiusSides, 180f.toRadians()).y,
+            radialToCartesian(radius, 250f.toRadians()).x,
+            radialToCartesian(radius, 250f.toRadians()).y,
+            radialToCartesian(innerRadius, 270f.toRadians()).x,
+            radialToCartesian(innerRadius, 270f.toRadians()).y,
+            radialToCartesian(radius, 290f.toRadians()).x,
+            radialToCartesian(radius, 290f.toRadians()).y,
+        )
+    }
+
+    val rounding = remember {
+        val roundingNormal = 0.6f
+        val roundingNone = 0f
+        listOf(
+            CornerRounding(roundingNormal),
+            CornerRounding(roundingNone),
+            CornerRounding(roundingNormal),
+            CornerRounding(roundingNormal),
+            CornerRounding(roundingNone),
+            CornerRounding(roundingNormal),
+        )
+    }
+
+    val polygon = remember(vertices, rounding) {
+        RoundedPolygon(
+            vertices = vertices,
+            perVertexRounding = rounding
+        )
+    }
+
+    val roundedPolygonPath = remember {
+        polygon
+            .toPath()
+            .asComposePath()
+    }
 
     Column(
         modifier = Modifier
@@ -143,7 +183,7 @@ fun PreparationScreen(
                         isShapeDropDownExpanded = false
                     }
                 ) {
-                    Shape.getAllShapes(200F).forEachIndexed { _, shapeValue ->
+                    Shape.listShapes(200F, roundedPolygonPath).forEachIndexed { _, shapeValue ->
                         if (!(shapeValue is Shape.Unspecified)) {
 
                             DropdownMenuItem(
@@ -170,6 +210,7 @@ fun PreparationScreen(
         GeometricThumbnail(
             shape = shape,
             shapeColor = shapeColor,
+            customPath = roundedPolygonPath,
             changeNVerticesCallback = { delta ->
                 val polygon = shape as Shape.RegularPolygon
                 if (delta == 1 && polygon.nVertices < 20) {
@@ -364,7 +405,7 @@ fun SpeedSlider(
             ),
             //steps = 1000,
             onValueChange = { range -> callback(range) },
-            valueRange = 0f..100f,
+            valueRange = 1f..1000f,
             onValueChangeFinished = {
                 // launch some business logic update with the state you hold
                 // viewModel.updateSelectedSliderValue(sliderPosition)
@@ -479,7 +520,7 @@ fun SliderSubTitle(text: String) {
 }
 
 @Composable
-fun GeometricThumbnail(shape: Shape, shapeColor: Color, changeNVerticesCallback: (Int) -> Unit) {
+fun GeometricThumbnail(shape: Shape, customPath: Path, shapeColor: Color, changeNVerticesCallback: (Int) -> Unit) {
 
     when (shape) {
         is Shape.RegularPolygon -> {
@@ -517,11 +558,11 @@ fun GeometricThumbnail(shape: Shape, shapeColor: Color, changeNVerticesCallback:
                                     centerX = 0F,
                                     centerY = 0F, //(shape.size!!.size / 2F) + 90F
                                 )
-                                val roundedPolygonPath = roundedPolygon
+                                val polygonPath = roundedPolygon
                                     .toPath()
                                     .asComposePath()
                                 onDrawBehind {
-                                    drawPath(roundedPolygonPath, color = shapeColor)
+                                    drawPath(polygonPath, color = shapeColor)
                                 }
                             }
                         //.fillMaxHeight(0.5f)
@@ -586,57 +627,15 @@ fun GeometricThumbnail(shape: Shape, shapeColor: Color, changeNVerticesCallback:
             }
         }
         is Shape.CustomPolygonalShape -> {
-            val vertices = remember {
-                val radius = 1f
-                val radiusSides = 0.8f
-                val innerRadius = .1f
-                floatArrayOf(
-                    radialToCartesian(radiusSides, 0f.toRadians()).x,
-                    radialToCartesian(radiusSides, 0f.toRadians()).y,
-                    radialToCartesian(radius, 90f.toRadians()).x,
-                    radialToCartesian(radius, 90f.toRadians()).y,
-                    radialToCartesian(radiusSides, 180f.toRadians()).x,
-                    radialToCartesian(radiusSides, 180f.toRadians()).y,
-                    radialToCartesian(radius, 250f.toRadians()).x,
-                    radialToCartesian(radius, 250f.toRadians()).y,
-                    radialToCartesian(innerRadius, 270f.toRadians()).x,
-                    radialToCartesian(innerRadius, 270f.toRadians()).y,
-                    radialToCartesian(radius, 290f.toRadians()).x,
-                    radialToCartesian(radius, 290f.toRadians()).y,
-                )
-            }
-
-            val rounding = remember {
-                val roundingNormal = 0.6f
-                val roundingNone = 0f
-                listOf(
-                    CornerRounding(roundingNormal),
-                    CornerRounding(roundingNone),
-                    CornerRounding(roundingNormal),
-                    CornerRounding(roundingNormal),
-                    CornerRounding(roundingNone),
-                    CornerRounding(roundingNormal),
-                )
-            }
-
-            val polygon = remember(vertices, rounding) {
-                RoundedPolygon(
-                    vertices = vertices,
-                    perVertexRounding = rounding
-                )
-            }
 
             Box(
                 modifier = Modifier
                     .padding(bottom = 30.dp)
                     .drawWithCache {
-                        val roundedPolygonPath = polygon
-                            .toPath()
-                            .asComposePath()
                         onDrawBehind {
                             scale(100f, 100f) {
                                 translate(size.width * 0.5f, size.height * 0.5f) {
-                                    drawPath(roundedPolygonPath, color = Color(0xFFF15087))
+                                    drawPath(customPath, color = Color(0xFFF15087))
                                 }
                             }
                         }

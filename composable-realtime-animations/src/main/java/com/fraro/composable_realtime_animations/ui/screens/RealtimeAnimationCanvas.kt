@@ -48,7 +48,6 @@ import com.fraro.composable_realtime_animations.data.models.ParticleAnimationMod
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
-import com.fraro.composable_realtime_animations.ui.viewmodels.RealtimeAnimationViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -98,8 +97,6 @@ fun RealtimeAnimationCanvas(
         val context = LocalContext.current
         val lifecycleOwner = context as ViewModelStoreOwner
 
-        val viewModel: RealtimeAnimationViewModel = ViewModelProvider(lifecycleOwner)[RealtimeAnimationViewModel::class.java]
-
         val particlesAnimMap = remember {
             mutableStateMapOf<Long, ParticleAnimationModel>()
         }
@@ -109,19 +106,21 @@ fun RealtimeAnimationCanvas(
             minActiveState = Lifecycle.State.RESUMED
         )
 
-        collectedFlow?.let { map ->
-            if (isForward) {
-                //createAnimationIntoFuture(map, particlesAnimMap, coroutineScope)
-            }
-            else {
-                createAnimationFromPast(map, coroutineScope)
+        LaunchedEffect(key1 = collectedFlow) {
+            collectedFlow?.let { map ->
+                if (isForward) {
+                    //createAnimationIntoFuture(map, particlesAnimMap, coroutineScope)
+                }
+                else {
+                    createAnimationFromPast(map, particlesAnimMap, coroutineScope)
+                }
             }
         }
         /*Box {
             Canvas(
                 modifier = Modifier.fillMaxSize()
             ) {
-                collectedFlow.value?.let {
+                collectedFlow?.let {
                     it.forEach { (key, value) ->
                         println("positions ${value.screenPosition.offset}")
                         drawCircle(
@@ -210,6 +209,7 @@ fun RealtimeAnimationCanvas(
                             x = offset.x + length,
                             y = offset.y
                         ),
+                        strokeWidth = 10F,
                         color = color ?: Color.Black.copy(alpha=0.3F),
                     )
                 }
@@ -257,8 +257,8 @@ fun RealtimeAnimationCanvas(
                 val regPolygon = RoundedPolygon(
                     numVertices = nVertices,
                     radius = radius,
-                    centerX = radius / 2,
-                    centerY = radius / 2
+                    centerX = radius / 2 + offset.x,
+                    centerY = radius / 2 + offset.y
                 )
                 val path = regPolygon.toPath().asComposePath()
                 rotate(
@@ -282,9 +282,10 @@ fun RealtimeAnimationCanvas(
                 size: RescaleFactor?,
                 color: Color?
             ) {
+                val scale = size?.scale ?: 100F
                 val pathBounds = path.getBounds()
-                val pivotX = (pathBounds.topLeft.x + pathBounds.bottomRight.x) / 2F
-                val pivotY = (pathBounds.topLeft.y + pathBounds.bottomRight.y) / 2F
+                val pivotX = (pathBounds.topLeft.x + pathBounds.bottomRight.x) * scale / 2F
+                val pivotY = (pathBounds.topLeft.y + pathBounds.bottomRight.y) * scale / 2F
 
                 rotate(
                     degrees = heading ?: 0F,
@@ -293,14 +294,13 @@ fun RealtimeAnimationCanvas(
                         y = offset.y + pivotY
                     )
                 ) {
-                    //         Move our path to the new position
-                    translate(
-                        left = offset.x + pivotX,
-                        top = offset.y + pivotY
+                    scale(
+                        scale = scale,
+                        pivot = Offset(pivotX, pivotY)
                     ) {
-                        scale(
-                            scale = size?.scale ?: 100F,
-                            pivot = Offset(pivotX, pivotY)
+                        translate(
+                            left = offset.x + pivotX,
+                            top = offset.y + pivotY
                         ) {
                             drawPath(
                                 path = path,
@@ -314,9 +314,9 @@ fun RealtimeAnimationCanvas(
             particlesAnimMap.forEach { entry ->
 
                 val isInScreenRange = entry.value.animatedOffset?.value?.let {
-                    it.x >= 0 && it.x <= configuration.screenWidthDp.toFloat() &&
-                    it.y >= 0 && it.y <= configuration.screenHeightDp.toFloat()
-                } ?: false
+                    it.x >= 0 && it.x <= configuration.screenWidthDp.dp.toPx() &&
+                    it.y >= 0 && it.y <= configuration.screenHeightDp.dp.toPx()
+                } ?: true // false if you want screen constraints
 
                 if (isInScreenRange) {
 
@@ -366,6 +366,7 @@ fun RealtimeAnimationCanvas(
                                     }
 
                                     is Shape.Ellipse -> {
+
                                         canvasDrawOval(
                                             offset = offset,
                                             heading = this@heading,
@@ -386,6 +387,7 @@ fun RealtimeAnimationCanvas(
                                     }
 
                                     is Shape.Unspecified -> {
+
                                         canvasDrawRect(
                                             offset = offset,
                                             heading = this@heading,
@@ -403,14 +405,19 @@ fun RealtimeAnimationCanvas(
     }
 }
 
+fun saludaAndonio() {
+    println("saluda Andonio")
+}
+
 fun createAnimationFromPast(
     map: Map<Long, ParticleVisualizationModel>,
-    //particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
+    particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
     coroutineScope: CoroutineScope
 ) {
+    saludaAndonio()
     map.forEach { particle ->
         println("posizione# ${particle.value.screenPosition}")
-        /*val foundAnimation = particlesAnimMap[particle.key]
+        val foundAnimation = particlesAnimMap[particle.key]
         foundAnimation?.let { found ->
             val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
             val nextScreenPosition = particle.value.screenPosition
@@ -465,7 +472,7 @@ fun createAnimationFromPast(
                 particleVisualizationModel = particle.value,
                 duration = particle.value.duration
             )
-        }*/
+        }
     }
 }
 
@@ -560,10 +567,11 @@ fun Flow<ParticleVisualizationModel>.toStateFlowWithLatestValues(
             val snapshotMap =
                 mutableMapOf<Long, ParticleVisualizationModel>() // Create a new map
             snapshotMap[particle.id] = particle // Add the particle to the new map
+            println("mappa $snapshotMap")
             snapshotMap // Return the new map
         }
         .sample(samplingInterval)
-        .buffer()
+        //.buffer()
         .stateIn(
             scope = CoroutineScope(Dispatchers.Default),
             started = SharingStarted.WhileSubscribed(5000),

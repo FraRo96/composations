@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
-import androidx.graphics.shapes.CornerRounding
 
 data class ParticleVisualizationModel(
     val id: Long,
@@ -32,14 +31,14 @@ sealed class Shape(val description: String) {
         val size: Size.SingleAxisMeasure = Size.SingleAxisMeasure(10F)
     ) : Shape("Regular polygon")
 
-    data class Ellipse(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(1F, 1F)) : Shape("Ellipse")
+    data class Ellipse(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(100F, 100F)) : Shape("Ellipse")
     data class CustomPolygonalShape(
         val path: Path,
-        val size: Size.RescaleFactor = Size.RescaleFactor(1F)
+        val size: Size.RescaleFactor = Size.RescaleFactor(100F)
     ) : Shape("Custom path")
 
     companion object {
-        fun getAllShapes(scaleFactor: Float): List<Shape> {
+        fun listShapes(scaleFactor: Float, customPath: Path): List<Shape> {
             return listOf(
                 Unspecified,
                 Segment(
@@ -56,7 +55,7 @@ sealed class Shape(val description: String) {
                     size = Size.DoubleAxisMeasure(scaleFactor, scaleFactor)
                 ),
                 CustomPolygonalShape(
-                    path = Path(),
+                    path = customPath,
                     size = Size.RescaleFactor(scaleFactor)
                 ) // Assuming default Path() is empty
             )

@@ -33,7 +33,7 @@ fun SimulationScreen() {
 
     val textMeasurer = rememberTextMeasurer()
 
-    RealtimeAnimationCanvas(animationFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(samplingInterval = 100), samplingInterval = 100, isForward = false)
+    RealtimeAnimationCanvas(animationFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(samplingInterval = 500), samplingInterval = 500, isForward = false)
 
     /*
     val collectedFlow by viewModel.backwardFlow.collectAsStateWithLifecycle(
@@ -42,7 +42,7 @@ fun SimulationScreen() {
     )
     Text(text = collectedFlow.toString()) */
 
-    Box {
+    /*Box {
         Canvas(modifier = Modifier.fillMaxSize()) {
             /*collectedFlow.value?.let {
                 drawCircle(
@@ -57,7 +57,7 @@ fun SimulationScreen() {
                 }
             }
         }
-    }
+    }*/
 }
 
 

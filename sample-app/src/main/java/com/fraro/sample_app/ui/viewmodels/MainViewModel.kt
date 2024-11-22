@@ -23,15 +23,15 @@ class MainViewModel : ViewModel() {
 
     val simulationModel = HashMap<Long, SimulationActor>()
     lateinit var backwardFlow: Flow<ParticleVisualizationModel>
-    val trajectories = HashMap<Long, List<CalibrationPoint>>()
+    lateinit var trajectories: Map<Long, List<CalibrationPoint>>
 
     var screenWidth: Float? = null
     var screenHeight: Float? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun startFlow() {
-        generateTrajectories()
-        val durations = generateDelays()
+        trajectories = generateTrajectories()
+        val durations = generateDelays(trajectories)
         backwardFlow = trajectories.entries.asFlow()
             .flatMapMerge { (key, points) ->
                 points.asFlow()
@@ -59,7 +59,7 @@ class MainViewModel : ViewModel() {
             }
     }
 
-    private fun generateDelays(): Map<Long, List<Float>> {
+    private fun generateDelays(trajectories: Map<Long, List<CalibrationPoint>>): Map<Long, List<Float>> {
         val map = HashMap<Long, MutableList<Float>>()
         trajectories.keys.forEach { key ->
             map[key] = mutableListOf()
@@ -71,13 +71,14 @@ class MainViewModel : ViewModel() {
         return map
     }
 
-    private fun generateTrajectories() {
+    private fun generateTrajectories(): Map<Long, List<CalibrationPoint>> {
+        val trajectories = mutableMapOf<Long, List<CalibrationPoint>>()
         simulationModel.forEach {
             when (it.value.trace) {
                 Trace.DIAGONAL -> {
-                    trajectories[it.key] = generateDiagonalNonHomogeneousSegmentsPoints(
-                        screenWidth = screenWidth!!,
-                        screenHeight = screenHeight!!,
+                    trajectories[it.key] = generateAcceleratingTrajectory(
+                        screenWidth = screenWidth!! * 2,
+                        screenHeight = screenHeight!! * 2,
                         minSpeed = it.value.speed.first.toFloat(),
                         maxSpeed = it.value.speed.second.toFloat(),
                         key = it.key
@@ -88,6 +89,7 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+        return trajectories.toMap()
     }
 
     /*private fun generateDiagonalEquilateralSegmentsPoints(
@@ -110,7 +112,7 @@ class MainViewModel : ViewModel() {
         }
     }*/
 
-    private fun generateDiagonalNonHomogeneousSegmentsPoints(
+    private fun generateAcceleratingTrajectory(
         screenWidth: Float,
         screenHeight: Float,
         key: Long,
@@ -131,10 +133,22 @@ class MainViewModel : ViewModel() {
         var currentY = 0f
 
         val result = mutableListOf<CalibrationPoint>()
+        result.add(CalibrationPoint(
+            id = key,
+            order = 0,
+            screenPosition = ScreenPosition(
+                offset = Offset(
+                    x = currentX,
+                    y = currentY
+                ),
+                heading = 0F
+            )
+        ))
         var currentSpeed = minSpeed
 
-        var timeStep = 0
-        while (true) {
+        var timeStep = 1
+        var isMaxReached = false
+        while (!isMaxReached) {
             // Update current speed during the initial phase
             if (timeStep < timeSteps) {
                 currentSpeed = minSpeed + timeStep * speedIncrement
@@ -149,7 +163,17 @@ class MainViewModel : ViewModel() {
             currentY += verticalSpeed
 
             // Stop generating points if the position goes out of bounds
-            if (currentX > screenWidth || currentY > screenHeight) return result
+            if (currentX >= screenWidth || currentY >= screenHeight) {
+                isMaxReached = true
+                if (currentX > screenWidth) {
+                    currentX = screenWidth
+                    println("larghezza $screenWidth")
+                }
+                if (currentY > screenHeight) {
+                    currentY = screenHeight
+                    println("lunghezza $screenHeight")
+                }
+            }
 
             result.add(
                 CalibrationPoint(
@@ -166,5 +190,6 @@ class MainViewModel : ViewModel() {
             )
             timeStep++
         }
+        return result
     }
 }
