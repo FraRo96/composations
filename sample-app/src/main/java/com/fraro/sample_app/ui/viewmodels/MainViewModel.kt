@@ -36,12 +36,14 @@ class MainViewModel : ViewModel() {
             .flatMapMerge { (key, points) ->
                 points.asFlow()
                     .map { point ->
-                        val delayFractionPrev = durations[key - 1]?.getOrNull(point.order) ?: 0F
-                        val delayFraction = durations[key]?.getOrNull(point.order) ?: 0F
+                        val delayFractionPrev = 0F//durations[key - 1]?.getOrNull(point.order) ?: 0F
+                        val delayFraction = 0F//durations[key]?.getOrNull(point.order) ?: 0F
                         val duration = 1000L + (1000 * delayFraction).toLong()
                         val color = simulationModel[key]!!.color
                         val shape = simulationModel[key]!!.shape
                         delay(1000L + (1000 * delayFractionPrev).toLong())
+
+                        println("flow iniziale ${point.screenPosition.offset}")
 
                         ParticleVisualizationModel(
                             id = key,

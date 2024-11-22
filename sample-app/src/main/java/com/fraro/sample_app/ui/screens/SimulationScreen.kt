@@ -4,9 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -20,12 +17,10 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeAnimationCanvas
+import com.fraro.composable_realtime_animations.ui.screens.toStateFlowWithLatestValues
 import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.ui.viewmodels.MainViewModel
 
@@ -38,11 +33,14 @@ fun SimulationScreen() {
 
     val textMeasurer = rememberTextMeasurer()
 
-    val collectedFlow = viewModel.backwardFlow.collectAsStateWithLifecycle(
+    RealtimeAnimationCanvas(animationFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(samplingInterval = 100), samplingInterval = 100, isForward = false)
+
+    /*
+    val collectedFlow by viewModel.backwardFlow.collectAsStateWithLifecycle(
         initialValue = null,
         minActiveState = Lifecycle.State.RESUMED
     )
-    RealtimeAnimationCanvas(animationFlow = viewModel.backwardFlow, samplingInterval = 100, isForward = false)
+    Text(text = collectedFlow.toString()) */
 
     Box {
         Canvas(modifier = Modifier.fillMaxSize()) {
