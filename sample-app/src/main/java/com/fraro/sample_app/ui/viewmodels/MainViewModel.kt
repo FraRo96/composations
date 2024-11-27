@@ -21,8 +21,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 class MainViewModel : ViewModel() {
@@ -89,7 +93,10 @@ class MainViewModel : ViewModel() {
                         screenHeight = screenHeight!! * 2,
                         minSpeed = it.value.speed.first.toFloat(),
                         maxSpeed = it.value.speed.second.toFloat(),
-                        key = it.key
+                        key = it.key,
+                        minAngle = it.value.rotation.first.toFloat(),
+                        maxAngle = it.value.rotation.second.toFloat(),
+                        isClockwise = it.value.isRotationClockwise
                     )
                 }
                 else -> {
@@ -125,44 +132,69 @@ class MainViewModel : ViewModel() {
         screenHeight: Float,
         key: Long,
         minSpeed: Float,
-        maxSpeed: Float
+        maxSpeed: Float,
+        minAngle: Float,
+        maxAngle: Float,
+        isClockwise: Boolean
     ): List<CalibrationPoint> {
         // Calculate the diagonal angle theta
         val theta = atan2(screenHeight, screenWidth)
         val cosTheta = cos(theta)
         val sinTheta = sin(theta)
 
+        // Calculate timeSteps based on speed and angle ranges
         val timeSteps = (maxSpeed - minSpeed).roundToInt()
-        // Speed increment per second to progress from minSpeed to maxSpeed
+        val angleTimeSteps = sqrt(screenHeight.pow(2) + screenHeight.pow(2)) / 1000
+
+        // Speed and angle increments per step
         val speedIncrement = (maxSpeed - minSpeed) / timeSteps
+        val angleIncrement = (maxAngle - minAngle) / angleTimeSteps
 
         // Initialize position
         var currentX = 0f
         var currentY = 0f
+        var currentSpeed = minSpeed
 
         val result = mutableListOf<CalibrationPoint>()
-        result.add(CalibrationPoint(
-            id = key,
-            order = 0,
-            screenPosition = ScreenPosition(
-                offset = Offset(
-                    x = currentX,
-                    y = currentY
-                ),
-                heading = 0F
+
+        var sampledAngle = if (isClockwise) minAngle else maxAngle
+
+        // Add the initial point
+        result.add(
+            CalibrationPoint(
+                id = key,
+                order = 0,
+                screenPosition = ScreenPosition(
+                    offset = Offset(
+                        x = currentX,
+                        y = currentY
+                    ),
+                    heading = sampledAngle
+                )
             )
-        ))
-        var currentSpeed = minSpeed
+        )
 
         var timeStep = 1
         var isMaxReached = false
+
         while (!isMaxReached) {
-            // Update current speed during the initial phase
-            if (timeStep < timeSteps) {
+            // Update speed and angle during the initial phase
+            if (timeStep <= timeSteps) {
                 currentSpeed = minSpeed + timeStep * speedIncrement
             }
 
-            // Calculate speed components
+            val newAngle = if (isClockwise) {
+                minAngle + timeStep * angleIncrement
+            } else {
+                maxAngle - timeStep * angleIncrement
+            }
+
+            if ((isClockwise && newAngle <= maxAngle)
+                            || (!isClockwise && newAngle >= minAngle)) {
+
+                sampledAngle = newAngle
+            }
+
             val horizontalSpeed = currentSpeed * cosTheta
             val verticalSpeed = currentSpeed * sinTheta
 
@@ -173,16 +205,11 @@ class MainViewModel : ViewModel() {
             // Stop generating points if the position goes out of bounds
             if (currentX >= screenWidth || currentY >= screenHeight) {
                 isMaxReached = true
-                if (currentX > screenWidth) {
-                    currentX = screenWidth
-                    println("larghezza $screenWidth")
-                }
-                if (currentY > screenHeight) {
-                    currentY = screenHeight
-                    println("lunghezza $screenHeight")
-                }
+                currentX = min(currentX, screenWidth)
+                currentY = min(currentY, screenHeight)
             }
 
+            // Add the point to the result with the sampled angle assigned to heading
             result.add(
                 CalibrationPoint(
                     id = key,
@@ -192,14 +219,17 @@ class MainViewModel : ViewModel() {
                             x = currentX,
                             y = currentY
                         ),
-                        heading = 0F
+                        heading = sampledAngle // Assign sampled angle as heading
                     )
                 )
             )
+
             timeStep++
         }
+
         return result
     }
+
 
     override fun onCleared() {
         super.onCleared()
