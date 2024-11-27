@@ -7,12 +7,18 @@ import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -25,6 +31,8 @@ class MainViewModel : ViewModel() {
     lateinit var backwardFlow: Flow<ParticleVisualizationModel>
     lateinit var trajectories: Map<Long, List<CalibrationPoint>>
 
+    val timer = Timer()
+
     var screenWidth: Float? = null
     var screenHeight: Float? = null
 
@@ -36,12 +44,12 @@ class MainViewModel : ViewModel() {
             .flatMapMerge { (key, points) ->
                 points.asFlow()
                     .map { point ->
-                        val delayFractionPrev = 0F//durations[key - 1]?.getOrNull(point.order) ?: 0F
-                        val delayFraction = 0F//durations[key]?.getOrNull(point.order) ?: 0F
-                        val duration = 1000L + (1000 * delayFraction).toLong()
+                        val delayFractionPrev = durations[key - 1]?.getOrNull(point.order) ?: 0F
+                        val delayFactor = durations[key]?.getOrNull(point.order) ?: 0F
+                        val duration = 1000L + (1000 * delayFactor).toLong()
                         val color = simulationModel[key]!!.color
                         val shape = simulationModel[key]!!.shape
-                        delay(1000L + (1000 * delayFractionPrev).toLong())
+                        delay(1000L)
 
                         println("flow iniziale ${point.screenPosition.offset}")
 
@@ -49,7 +57,7 @@ class MainViewModel : ViewModel() {
                             id = key,
                             screenPosition = point.screenPosition,
                             duration = duration.toInt(),
-                            maximumDelayFraction = delayFraction,
+                            delayFactor = delayFactor,
                             directionUnitVector = null,
                             shape = shape,
                             color = color
@@ -65,7 +73,7 @@ class MainViewModel : ViewModel() {
             map[key] = mutableListOf()
         }
         map.values.forEach {
-            val delayFraction = Random.nextDouble(0.0, 1.0).toFloat()
+            val delayFraction = Random.nextDouble(50.0, 100.0).toFloat()
             it += delayFraction
         }
         return map
@@ -191,5 +199,41 @@ class MainViewModel : ViewModel() {
             timeStep++
         }
         return result
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timer.cancel()
+    }
+
+    inner class Timer {
+        private val _timer = MutableStateFlow(0L)
+        val timer = _timer.asStateFlow()
+
+        private var timerJob: Job? = null
+
+        fun startTimer() {
+            stopTimer()
+            //timerJob?.cancel()
+            timerJob = CoroutineScope(Dispatchers.IO).launch {
+                while (true) {
+                    delay(1000)
+                    _timer.value++
+                }
+            }
+        }
+
+        fun pauseTimer() {
+            timerJob?.cancel()
+        }
+
+        fun stopTimer() {
+            _timer.value = 0
+            timerJob?.cancel()
+        }
+
+        fun cancel() {
+            timerJob?.cancel()
+        }
     }
 }

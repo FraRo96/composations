@@ -5,17 +5,16 @@ import com.fraro.composable_realtime_animations.data.models.Size.DoubleAxisMeasu
 import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasure
 import com.fraro.composable_realtime_animations.data.models.Size.RescaleFactor
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarDuration
 import androidx.compose.material.SnackbarHostState
-import androidx.compose.material.Text
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.ParticleAnimationModel
@@ -54,7 +52,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -69,6 +66,8 @@ fun RealtimeAnimationCanvas(
     animationFlow: StateFlow<Map<Long, ParticleVisualizationModel>?>,
     samplingInterval: Int,
     isForward: Boolean,
+    easing: Easing,
+    isStartedCallback: (() -> Unit)? = null
 ) {
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -112,7 +111,7 @@ fun RealtimeAnimationCanvas(
                     //createAnimationIntoFuture(map, particlesAnimMap, coroutineScope)
                 }
                 else {
-                    createAnimationFromPast(map, particlesAnimMap, coroutineScope)
+                    createAnimationFromPast(map, particlesAnimMap, easing, coroutineScope, isStartedCallback)
                 }
             }
         }
@@ -412,7 +411,9 @@ fun saludaAndonio() {
 fun createAnimationFromPast(
     map: Map<Long, ParticleVisualizationModel>,
     particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
-    coroutineScope: CoroutineScope
+    easing: Easing,
+    coroutineScope: CoroutineScope,
+    isStartedCallback: (() -> Unit)?
 ) {
     saludaAndonio()
     map.forEach { particle ->
@@ -420,16 +421,16 @@ fun createAnimationFromPast(
         val foundAnimation = particlesAnimMap[particle.key]
         foundAnimation?.let { found ->
             val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
-            val nextScreenPosition = particle.value.screenPosition
-            println("pos corrente ${currentScreenPosition.offset}")
-            println("pos prossima ${nextScreenPosition.offset}")
-            /*val nextAAScreenPosition = ScreenPosition(
+            val nextUnscaledScreenPosition = particle.value.screenPosition
+            //println("pos corrente ${currentScreenPosition.offset}")
+            //println("pos prossima ${nextScreenPosition.offset}")
+            val nextScreenPosition = ScreenPosition(
                 offset = nextUnscaledScreenPosition.offset
                         + (nextUnscaledScreenPosition.offset
-                        - currentScreenPosition.offset) * particle.value.maximumDelayFraction,
+                        - currentScreenPosition.offset) * particle.value.delayFactor,
                 heading = nextUnscaledScreenPosition.heading
-                        + nextUnscaledScreenPosition.heading * particle.value.maximumDelayFraction
-            )*/
+                        + nextUnscaledScreenPosition.heading * particle.value.delayFactor
+            )
             CoroutineScope(Dispatchers.Main).launch {
                 found.animatedOffset?.stop()
                 found.animatedHeading?.stop()
@@ -443,7 +444,7 @@ fun createAnimationFromPast(
                 animatedHeading = animatedHeading,
                 animatedOffset = animatedOffset,
                 particleVisualizationModel = found.particleVisualizationModel,
-                duration = particle.value.duration + (particle.value.duration * particle.value.maximumDelayFraction).roundToInt()
+                duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
             )
 
             val currParticle = particlesAnimMap[particle.key]
@@ -451,13 +452,13 @@ fun createAnimationFromPast(
                 coroutineScope.launch {
                     animatedOffset.animateTo(
                         nextScreenPosition.offset,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
+                        tween(durationMillis = it.duration, easing = easing)
                     )
                 }
                 coroutineScope.launch {
                     animatedHeading.animateTo(
                         nextScreenPosition.heading,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
+                        tween(durationMillis = it.duration, easing = easing)
                     )
                 }
             }
@@ -472,6 +473,7 @@ fun createAnimationFromPast(
                 particleVisualizationModel = particle.value,
                 duration = particle.value.duration
             )
+            isStartedCallback?.invoke()
         }
     }
 }
@@ -508,7 +510,7 @@ fun createAnimationIntoFuture(
                 animatedHeading = animatedHeading,
                 animatedOffset = animatedOffset,
                 particleVisualizationModel = particle.value,
-                duration = particle.value.duration + (particle.value.duration * particle.value.maximumDelayFraction).roundToInt()
+                duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
             )
 
             val currParticle = particlesAnimMap[particle.key]
