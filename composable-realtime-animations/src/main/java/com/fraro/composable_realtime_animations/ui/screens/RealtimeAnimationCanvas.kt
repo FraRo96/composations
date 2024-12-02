@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -562,21 +563,29 @@ fun angleFromUnitVector(x: Float, y: Float): Float {
 
 @OptIn(FlowPreview::class)
 fun Flow<ParticleVisualizationModel>.toStateFlowWithLatestValues(
-    samplingInterval: Long = 100L
-): StateFlow<Map<Long, ParticleVisualizationModel>?> {
+    samplingInterval: Long = 50L
+): StateFlow<Map<Long, ParticleVisualizationModel>> {
+    val sharedMap = mutableMapOf<Long, ParticleVisualizationModel>() // Shared map for the latest particles
+
     return this
-        .map { particle ->
-            val snapshotMap =
-                mutableMapOf<Long, ParticleVisualizationModel>() // Create a new map
-            snapshotMap[particle.id] = particle // Add the particle to the new map
-            println("mappa $snapshotMap")
-            snapshotMap // Return the new map
+        .onEach { particle ->
+            // Add the particle to the shared map
+            sharedMap[particle.id] = particle
         }
-        .sample(samplingInterval)
-        //.buffer()
+        .sample(samplingInterval) // Emit updates at the specified interval
+        .map {
+            // Create a snapshot of the map to emit
+            val snapshot = sharedMap.toMap()
+
+            // Clear the shared map for the next interval
+            sharedMap.clear()
+
+            snapshot // Emit the snapshot
+        }
         .stateIn(
             scope = CoroutineScope(Dispatchers.Default),
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
+            initialValue = emptyMap()
         )
 }
+
