@@ -257,15 +257,15 @@ fun RealtimeAnimationCanvas(
                 val regPolygon = RoundedPolygon(
                     numVertices = nVertices,
                     radius = radius,
-                    centerX = radius / 2 + offset.x,
-                    centerY = radius / 2 + offset.y
+                    centerX = offset.x,
+                    centerY = offset.y
                 )
                 val path = regPolygon.toPath().asComposePath()
                 rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
-                        x = offset.x + radius / 2F,
-                        y = offset.y + radius / 2F
+                        x = offset.x,
+                        y = offset.y
                     )
                 ) {
                     drawPath(
@@ -284,19 +284,19 @@ fun RealtimeAnimationCanvas(
             ) {
                 val scale = size?.scale ?: 100F
                 val pathBounds = path.getBounds()
-                val pivotX = (pathBounds.topLeft.x + pathBounds.bottomRight.x) * scale / 2F
-                val pivotY = (pathBounds.topLeft.y + pathBounds.bottomRight.y) * scale / 2F
+                val pivotX = (pathBounds.topLeft.x + pathBounds.bottomRight.x) / 2F
+                val pivotY = (pathBounds.topLeft.y + pathBounds.bottomRight.y) / 2F
 
                 rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
-                        x = offset.x + pivotX,
-                        y = offset.y + pivotY
+                        x = offset.x,
+                        y = offset.y
                     )
                 ) {
                     scale(
                         scale = scale,
-                        pivot = Offset(pivotX, pivotY)
+                        pivot = Offset(offset.x + pivotX, offset.y + pivotY)
                     ) {
                         translate(
                             left = offset.x + pivotX,

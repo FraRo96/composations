@@ -2,22 +2,32 @@ package com.fraro.sample_app.ui.viewmodels
 
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
+import com.fraro.composable_realtime_animations.ui.screens.toStateFlowWithLatestValues
 import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapMerge
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -49,26 +59,29 @@ class MainViewModel : ViewModel() {
                 points.asFlow()
                     .map { point ->
                         val delayFractionPrev = durations[key - 1]?.getOrNull(point.order) ?: 0F
-                        val delayFactor = durations[key]?.getOrNull(point.order) ?: 0F
-                        val duration = 1000L + (1000 * delayFactor).toLong()
+                        //val delayFactor = durations[key]?.getOrNull(point.order) ?: 0F
+                        val duration = 1000L //+ (1000 * delayFactor).toLong()
                         val color = simulationModel[key]!!.color
                         val shape = simulationModel[key]!!.shape
                         delay(1000L)
 
-                        println("flow iniziale ${point.screenPosition.offset}")
+                        println("id ${point.id}, chiave $key")
 
                         ParticleVisualizationModel(
                             id = key,
                             screenPosition = point.screenPosition,
                             duration = duration.toInt(),
-                            delayFactor = delayFactor,
+                            delayFactor = 0F,//delayFactor,
                             directionUnitVector = null,
                             shape = shape,
                             color = color
                         )
-
                     }
-            }
+            }//.buffer(capacity = trajectories.size)
+
+        viewModelScope.launch {
+            backwardFlow.toStateFlowWithLatestValues(100).collect { println("Collezionato ${it?.keys}") }
+        }
     }
 
     private fun generateDelays(trajectories: Map<Long, List<CalibrationPoint>>): Map<Long, List<Float>> {

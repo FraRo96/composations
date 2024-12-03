@@ -46,26 +46,34 @@ fun SimulationScreen() {
     val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]
     val textMeasurer = rememberTextMeasurer()
     var isTimerReady by remember { mutableStateOf(false) }
+    val collectedFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(6000).collectAsStateWithLifecycle(
+        initialValue = null
+    )
     //viewModel.timer.startTimer()
     Box {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            /*collectedFlow.value?.let {
-                drawCircle(
-                    color = Color(0xFF66BB6A).copy(alpha = 0.8f), // Default to black if color is null
-                    center = it.screenPosition.offset,
-                    radius = 20.dp.toPx()
-                )
+            /* collectedFlow.value?.let { map ->
+                println("Nuova mappa: ${map.keys}")
+                map.values.forEach {
+                    drawCircle(
+                        color = it.color!!.copy(alpha = 0.8f), // Default to black if color is null
+                        center = it.screenPosition.offset,
+                        radius = 20.dp.toPx()
+                    )
+                }
             }*/
-            viewModel.trajectories.forEach {
+            /*viewModel.trajectories.forEach {
                 it.value.forEach { it1 ->
                     drawCalibrationPoint(it1, textMeasurer)
                 }
-            }
+            }*/
         }
     }
     if (isTimerReady) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, end = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, end = 10.dp),
             horizontalAlignment = Alignment.End
         ) {
             Timer(viewModel.timer)
