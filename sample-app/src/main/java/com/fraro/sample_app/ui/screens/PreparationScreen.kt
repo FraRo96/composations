@@ -36,7 +36,6 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +70,7 @@ import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasu
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
 import com.fraro.sample_app.ui.theme.Indigo
-import com.fraro.sample_app.ui.viewmodels.MainViewModel
+import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -88,7 +87,7 @@ fun PreparationScreen(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val lifecycleOwner = context as ViewModelStoreOwner
-    val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]
+    val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
 
     var isTraceDropDownExpanded by remember { mutableStateOf(false) }
     var isShapeDropDownExpanded by remember { mutableStateOf(false) }

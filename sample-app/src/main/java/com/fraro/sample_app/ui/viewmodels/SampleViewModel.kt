@@ -12,26 +12,17 @@ import com.fraro.sample_app.data.Trace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.sample
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -39,7 +30,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-class MainViewModel : ViewModel() {
+class SampleViewModel : ViewModel() {
 
     val simulationModel = HashMap<Long, SimulationActor>()
     lateinit var backwardFlow: Flow<ParticleVisualizationModel>
@@ -54,6 +45,7 @@ class MainViewModel : ViewModel() {
     fun startFlow() {
         trajectories = generateTrajectories()
         val durations = generateDelays(trajectories)
+
         backwardFlow = trajectories.entries.asFlow()
             .flatMapMerge { (key, points) ->
                 points.asFlow()

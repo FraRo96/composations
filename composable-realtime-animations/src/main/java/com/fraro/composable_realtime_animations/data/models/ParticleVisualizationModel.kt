@@ -16,7 +16,6 @@ data class ParticleVisualizationModel(
     val bitmap: ImageBitmap? = null,
 )
 
-
 data class ScreenPosition(
     val offset: Offset,
     val heading: Float

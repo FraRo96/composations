@@ -7,7 +7,11 @@ import com.fraro.composable_realtime_animations.data.models.Size.RescaleFactor
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,16 +32,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
@@ -64,8 +77,8 @@ import kotlin.math.roundToInt
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun RealtimeAnimationCanvas(
-    animationFlow: StateFlow<Map<Long, ParticleVisualizationModel>?>,
-    samplingInterval: Int,
+    animationFlow: StateFlow<Map<Long, ParticleVisualizationModel>>,
+    samplingInterval: Int = 100,
     isForward: Boolean,
     easing: Easing,
     isStartedCallback: (() -> Unit)? = null
@@ -102,20 +115,63 @@ fun RealtimeAnimationCanvas(
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
-            initialValue = null,
+            initialValue = mapOf(),
             minActiveState = Lifecycle.State.RESUMED
         )
 
         LaunchedEffect(key1 = collectedFlow) {
-            collectedFlow?.let { map ->
-                if (isForward) {
-                    //createAnimationIntoFuture(map, particlesAnimMap, coroutineScope)
-                }
-                else {
-                    createAnimationFromPast(map, particlesAnimMap, easing, coroutineScope, isStartedCallback)
-                }
-            }
+            animateCanvas(
+                collectedFlow,
+                particlesAnimMap,
+                coroutineScope,
+                isStartedCallback
+            )
         }
+
+        val shapeA = remember {
+            RoundedPolygon(
+                12,
+                rounding = CornerRounding(0.2f)
+            )
+        }
+        val shapeB = remember {
+            RoundedPolygon.star(
+                12,
+                rounding = CornerRounding(0.2f)
+            )
+        }
+        val morph = remember {
+            Morph(shapeA, shapeB)
+        }
+        val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
+        val animatedProgress = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                tween(2000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedMorphProgress"
+        )
+
+        LaunchedEffect(animatedProgress) {
+            snackbarHostState.showSnackbar(
+                "Sampling interval not valid.",
+                "Change",
+                duration = SnackbarDuration.Long
+            )
+        }
+
+        val animatedRotation = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                tween(6000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedMorphProgress"
+        )
+
         /*Box {
             Canvas(
                 modifier = Modifier.fillMaxSize()
@@ -162,28 +218,40 @@ fun RealtimeAnimationCanvas(
                 size: DoubleAxisMeasure?,
                 color: Color?
             ) {
-                val rectWidth = size?.width ?: 20f
-                val rectHeight = size?.height ?: 20f
-                rotate(
+                val rectWidth = //size?.width ?:
+                    100f
+                val rectHeight = //size?.height ?:
+                    100f
+                /*rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
                         x = offset.x + rectWidth / 2F,
                         y = offset.y + rectHeight / 2F
                     )
-                ) {
-                    drawRect(
-                        topLeft = Offset(
-                            x = offset.x,
-                            y = offset.y
-                        ),
-                        size = Size(
-                            width = rectWidth,
-                            height = rectHeight
-                        ),
-                        color = color ?: Color.Black.copy(alpha=0.3F),
-                        style = Fill
-                    )
-                }
+                )*/ clipPath(
+                        CustomRotatingMorphShape(
+                            morph,
+                            animatedProgress.value,
+                            animatedRotation.value
+                        ).createPath(
+                            Size(50f,50f),
+                            offset.x,
+                            offset.y
+                        )
+                    ) {
+                        drawRect(
+                            topLeft = Offset(
+                                x = offset.x,
+                                y = offset.y
+                            ),
+                            size = Size(
+                                width = rectWidth,
+                                height = rectHeight
+                            ),
+                            color = color ?: Color.Black.copy(alpha=0.3F),
+                            style = Fill
+                        )
+                    }
             }
 
             fun canvasDrawLine(
@@ -196,17 +264,17 @@ fun RealtimeAnimationCanvas(
                 rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
-                        x = offset.x + length / 2F,
+                        x = offset.x,
                         y = offset.y
                     )
                 ) {
                     drawLine(
                         start = Offset(
-                            x = offset.x,
+                            x = offset.x - length / 2,
                             y = offset.y
                         ),
                         end = Offset(
-                            x = offset.x + length,
+                            x = offset.x + length / 2,
                             y = offset.y
                         ),
                         strokeWidth = 10F,
@@ -226,14 +294,14 @@ fun RealtimeAnimationCanvas(
                 rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
-                        x = offset.x + width / 2F,
-                        y = offset.y + height / 2F
+                        x = offset.x,
+                        y = offset.y
                     )
                 ) {
                     drawOval(
                         topLeft = Offset(
-                            x = offset.x,
-                            y = offset.y
+                            x = offset.x - width / 2,
+                            y = offset.y - height / 2,
                         ),
                         size = Size(
                             width = width,
@@ -303,7 +371,15 @@ fun RealtimeAnimationCanvas(
                             top = offset.y + pivotY
                         ) {
                             drawPath(
-                                path = path,
+                                path = CustomRotatingMorphShape(
+                                    morph,
+                                    animatedProgress.value,
+                                    animatedRotation.value
+                                ).createPath(
+                                    Size(50f,50f),
+                                    offset.x,
+                                    offset.y
+                                ), //path,
                                 color = color ?: Color.Black.copy(alpha = 0.3F)
                             )
                         }
@@ -409,10 +485,9 @@ fun saludaAndonio() {
     println("saluda Andonio")
 }
 
-fun createAnimationFromPast(
+fun animateCanvas(
     map: Map<Long, ParticleVisualizationModel>,
     particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
-    easing: Easing,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
@@ -453,13 +528,13 @@ fun createAnimationFromPast(
                 coroutineScope.launch {
                     animatedOffset.animateTo(
                         nextScreenPosition.offset,
-                        tween(durationMillis = it.duration, easing = easing)
+                        tween(durationMillis = it.duration, easing = LinearEasing)
                     )
                 }
                 coroutineScope.launch {
                     animatedHeading.animateTo(
                         nextScreenPosition.heading,
-                        tween(durationMillis = it.duration, easing = easing)
+                        tween(durationMillis = it.duration, easing = LinearEasing)
                     )
                 }
             }
@@ -588,4 +663,48 @@ fun Flow<ParticleVisualizationModel>.toStateFlowWithLatestValues(
             initialValue = emptyMap()
         )
 }
+
+class CustomRotatingMorphShape(
+    private val morph: Morph,
+    private val percentage: Float,
+    private val rotation: Float
+) : androidx.compose.ui.graphics.Shape {
+
+    private val matrix = Matrix()
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
+        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
+        matrix.scale(size.width / 2f, size.height / 2f)
+        matrix.translate(1f, 1f)
+        matrix.rotateZ(rotation)
+
+        val path = morph.toPath(progress = percentage).asComposePath()
+        path.transform(matrix)
+
+        return Outline.Generic(path)
+    }
+
+    fun createPath(
+        size: Size,
+        translateX: Float,
+        translateY: Float
+    ): Path {
+        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
+        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
+        //matrix.scale(size.width / 2f, size.height / 2f)
+        //matrix.translate(translateX, translateY)
+        //matrix.rotateZ(rotation)
+
+        val path = morph.toPath(progress = percentage).asComposePath()
+        //path.transform(matrix)
+
+        return path
+    }
+}
+
+
 

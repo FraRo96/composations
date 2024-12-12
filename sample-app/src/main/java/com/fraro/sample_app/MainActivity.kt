@@ -12,12 +12,12 @@ import androidx.navigation.compose.rememberNavController
 import com.fraro.sample_app.ui.screens.PreparationScreen
 import com.fraro.sample_app.ui.screens.SimulationScreen
 import com.fraro.sample_app.ui.theme.ComposablerealtimeanimationsTheme
-import com.fraro.sample_app.ui.viewmodels.MainViewModel
+import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {
 
-    private val mainViewModel: MainViewModel by viewModels()
+    private val sampleViewModel: SampleViewModel by viewModels()
     private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {

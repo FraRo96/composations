@@ -1,12 +1,9 @@
 package com.fraro.sample_app.ui.screens
 
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,14 +33,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeAnimationCanvas
 import com.fraro.composable_realtime_animations.ui.screens.toStateFlowWithLatestValues
 import com.fraro.sample_app.data.CalibrationPoint
-import com.fraro.sample_app.ui.viewmodels.MainViewModel
+import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 
 @Composable
 fun SimulationScreen() {
 
     val context = LocalContext.current
     val lifecycleOwner = context as ViewModelStoreOwner
-    val viewModel: MainViewModel = ViewModelProvider(lifecycleOwner)[MainViewModel::class.java]
+    val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
     val textMeasurer = rememberTextMeasurer()
     var isTimerReady by remember { mutableStateOf(false) }
     val collectedFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(6000).collectAsStateWithLifecycle(
@@ -90,17 +87,8 @@ fun SimulationScreen() {
     )
 }
 
-    /*
-    val collectedFlow by viewModel.backwardFlow.collectAsStateWithLifecycle(
-        initialValue = null,
-        minActiveState = Lifecycle.State.RESUMED
-    )
-    Text(text = collectedFlow.toString()) */
-
-
-
 @Composable
-fun Timer(timer: MainViewModel.Timer) {
+fun Timer(timer: SampleViewModel.Timer) {
     val timerValue by timer.timer.collectAsStateWithLifecycle()
     Text(text = timerValue.toInt().toString(), fontSize = 24.sp)
 }
