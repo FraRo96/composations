@@ -1,6 +1,6 @@
 [versions]
 
-agp = "8.2.0-alpha14"
+agp = "8.2.2"
 androidxActivity = "1.8.0-alpha06"
 androidxLifecycle = "2.6.1"
 androidx-material = "1.5.0"

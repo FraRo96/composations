@@ -70,7 +70,7 @@ import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasu
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
 import com.fraro.sample_app.ui.theme.Indigo
-import com.fraro.sample_app.ui.viewmodels.SampleViewModel
+import com.fraro.sample_app.ui.viewmodels.SimulationViewModel
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -87,7 +87,7 @@ fun PreparationScreen(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val lifecycleOwner = context as ViewModelStoreOwner
-    val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
+    val viewModel: SimulationViewModel = ViewModelProvider(lifecycleOwner)[SimulationViewModel::class.java]
 
     var isTraceDropDownExpanded by remember { mutableStateOf(false) }
     var isShapeDropDownExpanded by remember { mutableStateOf(false) }

@@ -23,7 +23,6 @@ import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateMap
@@ -41,9 +40,9 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -65,6 +64,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
@@ -111,7 +112,7 @@ fun RealtimeAnimationCanvas(
         val lifecycleOwner = context as ViewModelStoreOwner
 
         val particlesAnimMap = remember {
-            mutableStateMapOf<Long, ParticleAnimationModel>()
+            mutableMapOf<Long, ParticleAnimationModel>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -222,36 +223,26 @@ fun RealtimeAnimationCanvas(
                     100f
                 val rectHeight = //size?.height ?:
                     100f
-                /*rotate(
+                rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
                         x = offset.x + rectWidth / 2F,
                         y = offset.y + rectHeight / 2F
                     )
-                )*/ clipPath(
-                        CustomRotatingMorphShape(
-                            morph,
-                            animatedProgress.value,
-                            animatedRotation.value
-                        ).createPath(
-                            Size(50f,50f),
-                            offset.x,
-                            offset.y
-                        )
-                    ) {
-                        drawRect(
-                            topLeft = Offset(
-                                x = offset.x,
-                                y = offset.y
-                            ),
-                            size = Size(
-                                width = rectWidth,
-                                height = rectHeight
-                            ),
-                            color = color ?: Color.Black.copy(alpha=0.3F),
-                            style = Fill
-                        )
-                    }
+                ) {
+                    drawRect(
+                        topLeft = Offset(
+                            x = offset.x,
+                            y = offset.y
+                        ),
+                        size = Size(
+                            width = rectWidth,
+                            height = rectHeight
+                        ),
+                        color = color ?: Color.Black.copy(alpha=0.3F),
+                        style = Fill
+                    )
+                }
             }
 
             fun canvasDrawLine(
@@ -487,69 +478,71 @@ fun saludaAndonio() {
 
 fun animateCanvas(
     map: Map<Long, ParticleVisualizationModel>,
-    particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
+    particlesAnimMap: MutableMap<Long, ParticleAnimationModel>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
-    saludaAndonio()
-    map.forEach { particle ->
-        println("posizione# ${particle.value.screenPosition}")
-        val foundAnimation = particlesAnimMap[particle.key]
-        foundAnimation?.let { found ->
-            val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
-            val nextUnscaledScreenPosition = particle.value.screenPosition
-            //println("pos corrente ${currentScreenPosition.offset}")
-            //println("pos prossima ${nextScreenPosition.offset}")
-            val nextScreenPosition = ScreenPosition(
-                offset = nextUnscaledScreenPosition.offset
-                        + (nextUnscaledScreenPosition.offset
-                        - currentScreenPosition.offset) * particle.value.delayFactor,
-                heading = nextUnscaledScreenPosition.heading
-                        + nextUnscaledScreenPosition.heading * particle.value.delayFactor
-            )
-            CoroutineScope(Dispatchers.Main).launch {
-                found.animatedOffset?.stop()
-                found.animatedHeading?.stop()
-            }
-            val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
-            val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
-
-            particlesAnimMap[particle.key] = ParticleAnimationModel(
-                prev = currentScreenPosition,
-                next = nextScreenPosition,
-                animatedHeading = animatedHeading,
-                animatedOffset = animatedOffset,
-                particleVisualizationModel = found.particleVisualizationModel,
-                duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
-            )
-
-            val currParticle = particlesAnimMap[particle.key]
-            currParticle?.let {
+    //saludaAndonio()
+    CoroutineScope(Dispatchers.Default).launch {
+        map.forEach { particle ->
+            //println("posizione# ${particle.value.screenPosition}")
+            val foundAnimation = particlesAnimMap[particle.key]
+            foundAnimation?.let { found ->
+                val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
+                val nextUnscaledScreenPosition = particle.value.screenPosition
+                //println("pos corrente ${currentScreenPosition.offset}")
+                //println("pos prossima ${nextScreenPosition.offset}")
+                val nextScreenPosition = ScreenPosition(
+                    offset = nextUnscaledScreenPosition.offset
+                            + (nextUnscaledScreenPosition.offset
+                            - currentScreenPosition.offset) * particle.value.delayFactor,
+                    heading = nextUnscaledScreenPosition.heading
+                            + nextUnscaledScreenPosition.heading * particle.value.delayFactor
+                )
                 coroutineScope.launch {
-                    animatedOffset.animateTo(
-                        nextScreenPosition.offset,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
-                    )
+                    found.animatedOffset?.stop()
+                    found.animatedHeading?.stop()
                 }
-                coroutineScope.launch {
-                    animatedHeading.animateTo(
-                        nextScreenPosition.heading,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
-                    )
+                val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
+                val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
+
+                particlesAnimMap[particle.key] = ParticleAnimationModel(
+                    prev = currentScreenPosition,
+                    next = nextScreenPosition,
+                    animatedHeading = animatedHeading,
+                    animatedOffset = animatedOffset,
+                    particleVisualizationModel = found.particleVisualizationModel,
+                    duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
+                )
+
+                val currParticle = particlesAnimMap[particle.key]
+                currParticle?.let {
+                    coroutineScope.launch {
+                        animatedOffset.animateTo(
+                            nextScreenPosition.offset,
+                            tween(durationMillis = it.duration, easing = LinearEasing)
+                        )
+                    }
+                   coroutineScope.launch {
+                        animatedHeading.animateTo(
+                            nextScreenPosition.heading,
+                            tween(durationMillis = it.duration, easing = LinearEasing)
+                        )
+                    }
                 }
             }
-        }
-        if (foundAnimation == null) {
-            println("pos prima ${particle.value.screenPosition}")
-            particlesAnimMap[particle.key] = ParticleAnimationModel(
-                prev = particle.value.screenPosition,
-                next = particle.value.screenPosition,
-                animatedHeading = null,
-                animatedOffset = null,
-                particleVisualizationModel = particle.value,
-                duration = particle.value.duration
-            )
-            isStartedCallback?.invoke()
+            if (foundAnimation == null) {
+                println("pos prima ${particle.value.screenPosition}")
+                particlesAnimMap[particle.key] = ParticleAnimationModel(
+                    prev = particle.value.screenPosition,
+                    next = particle.value.screenPosition,
+                    animatedHeading = null,
+                    animatedOffset = null,
+                    particleVisualizationModel = particle.value,
+                    duration = particle.value.duration
+                )
+                isStartedCallback?.invoke()
+            }
         }
     }
 }
@@ -559,49 +552,51 @@ fun createAnimationIntoFuture(
     particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
     coroutineScope: CoroutineScope
 ) {
-    map.forEach { particle ->
-        particle.value.directionUnitVector?.let { direction ->
-            val foundAnimation = particlesAnimMap[particle.key]
-            val currentScreenPosition = findScreenPosition(foundAnimation)
-                ?: particle.value.screenPosition
+    CoroutineScope(Dispatchers.Default).launch {
+        map.forEach { particle ->
+            particle.value.directionUnitVector?.let { direction ->
+                val foundAnimation = particlesAnimMap[particle.key]
+                val currentScreenPosition = findScreenPosition(foundAnimation)
+                    ?: particle.value.screenPosition
 
-            val nextScreenPosition = ScreenPosition(
-                offset = currentScreenPosition.offset +
-                        Offset (
-                            particle.value.duration * direction.x,
-                            particle.value.duration * direction.y
-                        ),
-                heading = angleFromUnitVector(direction.x, direction.y)
-            )
-            CoroutineScope(Dispatchers.Main).launch {
-                foundAnimation?.animatedOffset?.stop()
-                foundAnimation?.animatedHeading?.stop()
-            }
-            val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
-            val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
-
-            particlesAnimMap[particle.key] = ParticleAnimationModel(
-                prev = currentScreenPosition,
-                next = nextScreenPosition,
-                animatedHeading = animatedHeading,
-                animatedOffset = animatedOffset,
-                particleVisualizationModel = particle.value,
-                duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
-            )
-
-            val currParticle = particlesAnimMap[particle.key]
-            currParticle?.let {
-                coroutineScope.launch {
-                    animatedOffset.animateTo(
-                        nextScreenPosition.offset,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
-                    )
+                val nextScreenPosition = ScreenPosition(
+                    offset = currentScreenPosition.offset +
+                            Offset (
+                                particle.value.duration * direction.x,
+                                particle.value.duration * direction.y
+                            ),
+                    heading = angleFromUnitVector(direction.x, direction.y)
+                )
+                CoroutineScope(Dispatchers.Default).launch {
+                    foundAnimation?.animatedOffset?.stop()
+                    foundAnimation?.animatedHeading?.stop()
                 }
-                coroutineScope.launch {
-                    animatedHeading.animateTo(
-                        nextScreenPosition.heading,
-                        tween(durationMillis = it.duration, easing = LinearEasing)
-                    )
+                val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
+                val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
+
+                particlesAnimMap[particle.key] = ParticleAnimationModel(
+                    prev = currentScreenPosition,
+                    next = nextScreenPosition,
+                    animatedHeading = animatedHeading,
+                    animatedOffset = animatedOffset,
+                    particleVisualizationModel = particle.value,
+                    duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
+                )
+
+                val currParticle = particlesAnimMap[particle.key]
+                currParticle?.let {
+                    CoroutineScope(Dispatchers.Default).launch {
+                        animatedOffset.animateTo(
+                            nextScreenPosition.offset,
+                            tween(durationMillis = it.duration, easing = LinearEasing)
+                        )
+                    }
+                    CoroutineScope(Dispatchers.Default).launch {
+                        animatedHeading.animateTo(
+                            nextScreenPosition.heading,
+                            tween(durationMillis = it.duration, easing = LinearEasing)
+                        )
+                    }
                 }
             }
         }
@@ -637,7 +632,7 @@ fun angleFromUnitVector(x: Float, y: Float): Float {
 }
 
 @OptIn(FlowPreview::class)
-fun Flow<ParticleVisualizationModel>.toStateFlowWithLatestValues(
+fun Flow<ParticleVisualizationModel>.toBatchedStateFlow(
     samplingInterval: Long = 50L
 ): StateFlow<Map<Long, ParticleVisualizationModel>> {
     val sharedMap = mutableMapOf<Long, ParticleVisualizationModel>() // Shared map for the latest particles
@@ -651,16 +646,15 @@ fun Flow<ParticleVisualizationModel>.toStateFlowWithLatestValues(
         .map {
             // Create a snapshot of the map to emit
             val snapshot = sharedMap.toMap()
-
-            // Clear the shared map for the next interval
             sharedMap.clear()
 
-            snapshot // Emit the snapshot
+            snapshot
         }
+        .distinctUntilChanged()
         .stateIn(
             scope = CoroutineScope(Dispatchers.Default),
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyMap()
+            started = SharingStarted.WhileSubscribed(),
+            initialValue = mapOf()
         )
 }
 

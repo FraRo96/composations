@@ -9,15 +9,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.fraro.sample_app.ui.screens.PreparationScreen
+import com.fraro.sample_app.ui.screens.SampleScreen
 import com.fraro.sample_app.ui.screens.SimulationScreen
 import com.fraro.sample_app.ui.theme.ComposablerealtimeanimationsTheme
-import com.fraro.sample_app.ui.viewmodels.SampleViewModel
+import com.fraro.sample_app.ui.viewmodels.SimulationViewModel
 import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {
 
-    private val sampleViewModel: SampleViewModel by viewModels()
+    private val simulationViewModel: SimulationViewModel by viewModels()
     private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,11 +30,11 @@ class MainActivity : ComponentActivity() {
                     startDestination = PreparationRoute
                 ) {
                     composable<PreparationRoute> {
-                        PreparationScreen(
+                        /*PreparationScreen(
                             onSubmitClick = {
                                 navController.navigate(SimulationRoute)
                             }
-                        )
+                        )*/ SampleScreen()
                     }
                     composable<SimulationRoute> {
                         SimulationScreen()

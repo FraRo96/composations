@@ -1,5 +1,6 @@
 package com.fraro.sample_app.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -31,21 +32,21 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeAnimationCanvas
-import com.fraro.composable_realtime_animations.ui.screens.toStateFlowWithLatestValues
+import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
 import com.fraro.sample_app.data.CalibrationPoint
-import com.fraro.sample_app.ui.viewmodels.SampleViewModel
+import com.fraro.sample_app.ui.viewmodels.SimulationViewModel
 
+
+@SuppressLint("FlowOperatorInvokedInComposition")
 @Composable
 fun SimulationScreen() {
 
     val context = LocalContext.current
     val lifecycleOwner = context as ViewModelStoreOwner
-    val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
+    val viewModel: SimulationViewModel = ViewModelProvider(lifecycleOwner)[SimulationViewModel::class.java]
     val textMeasurer = rememberTextMeasurer()
     var isTimerReady by remember { mutableStateOf(false) }
-    val collectedFlow = viewModel.backwardFlow.toStateFlowWithLatestValues(6000).collectAsStateWithLifecycle(
-        initialValue = null
-    )
+
     //viewModel.timer.startTimer()
     Box {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -79,7 +80,7 @@ fun SimulationScreen() {
 
     RealtimeAnimationCanvas(
         animationFlow = viewModel.backwardFlow
-            .toStateFlowWithLatestValues(samplingInterval = 500),
+            .toBatchedStateFlow(samplingInterval = 500),
         samplingInterval = 500,
         isForward = false,
         easing = LinearEasing,
@@ -88,7 +89,7 @@ fun SimulationScreen() {
 }
 
 @Composable
-fun Timer(timer: SampleViewModel.Timer) {
+fun Timer(timer: SimulationViewModel.Timer) {
     val timerValue by timer.timer.collectAsStateWithLifecycle()
     Text(text = timerValue.toInt().toString(), fontSize = 24.sp)
 }
