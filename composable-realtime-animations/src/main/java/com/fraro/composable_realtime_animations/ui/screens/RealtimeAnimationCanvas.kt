@@ -1,11 +1,8 @@
 package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
-import com.fraro.composable_realtime_animations.data.models.Size.DoubleAxisMeasure
-import com.fraro.composable_realtime_animations.data.models.Size.SingleAxisMeasure
-import com.fraro.composable_realtime_animations.data.models.Size.RescaleFactor
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
@@ -25,22 +22,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Fill
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Density
@@ -54,10 +46,14 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.ParticleAnimationModel
-import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
+import com.fraro.composable_realtime_animations.data.models.AbstractElement
+import com.fraro.composable_realtime_animations.data.models.ElementVisualization
+import com.fraro.composable_realtime_animations.data.models.Animation
+import com.fraro.composable_realtime_animations.data.models.MorphAnimation
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
+import com.fraro.composable_realtime_animations.data.models.Size
+import com.fraro.composable_realtime_animations.data.models.Value
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -65,23 +61,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun RealtimeAnimationCanvas(
-    animationFlow: StateFlow<Map<Long, ParticleVisualizationModel>>,
+    animationFlow: StateFlow<Map<Long, AbstractElement>>,
     samplingInterval: Int = 100,
-    isForward: Boolean,
-    easing: Easing,
     isStartedCallback: (() -> Unit)? = null
 ) {
 
@@ -112,7 +104,7 @@ fun RealtimeAnimationCanvas(
         val lifecycleOwner = context as ViewModelStoreOwner
 
         val particlesAnimMap = remember {
-            mutableMapOf<Long, ParticleAnimationModel>()
+            mutableMapOf<Long, ElementVisualization>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -193,25 +185,6 @@ fun RealtimeAnimationCanvas(
         Canvas(
             modifier = Modifier.fillMaxSize()
         ) {
-
-            fun canvasDrawImage(
-                offset: Offset,
-                heading: Float?,
-                bitmap: ImageBitmap
-            ) {
-                rotate(
-                    degrees = heading ?: 0F,
-                    pivot = Offset(
-                        x = offset.x + bitmap.width / 2,
-                        y = offset.y + bitmap.height / 2
-                    )
-                ) {
-                    drawImage(
-                        image = bitmap,
-                        topLeft = offset
-                    )
-                }
-            }
 
             fun canvasDrawRect(
                 offset: Offset,
@@ -378,111 +351,149 @@ fun RealtimeAnimationCanvas(
                 }
             }
 
-            particlesAnimMap.forEach { entry ->
+            particlesAnimMap.values.forEach { particle ->
+                val shape = findShape(particle.shape)
+                val color = findValue(particle.color)
+                val size = findValue(particle.size)
+                val offset = findValue(particle.offset)
+                val rotation = findValue(particle.rotation)
 
-                val isInScreenRange = entry.value.animatedOffset?.value?.let {
-                    it.x >= 0 && it.x <= configuration.screenWidthDp.dp.toPx() &&
-                    it.y >= 0 && it.y <= configuration.screenHeightDp.dp.toPx()
-                } ?: true // false if you want screen constraints
+                when (shape) {
+                    is Shape.Segment -> {
 
-                if (isInScreenRange) {
+                    }
+                    is Shape.Ellipse -> {
 
-                    with(entry.value.particleVisualizationModel) particle@ {
-                        entry.value.animatedOffset?.value?.let { offset ->
-                            with(entry.value.animatedHeading?.value) heading@ {
-                                entry.value.particleVisualizationModel.bitmap?.let { bitmap ->
+                    }
+                    is Shape.Rectangle -> {
 
-                                    canvasDrawImage(
+                    }
+                    is Shape.RegularPolygon -> {
+
+                    }
+                    is Shape.CustomPolygonalShape -> {
+                        canvasDrawCustomPolygonalShape(
+                            offset = offset,
+                            heading = rotation.toFloat(),
+                            path = shape.path,
+                            size = size as Size.RescaleFactor,
+                            color = Color.Red
+                        )
+                    }
+
+                    Shape.Unspecified -> {
+
+                    }
+                }
+                val path = ((particle.shape as Value.Animated<*,*>).animation as MorphAnimation).getCurrentMorphPath()
+
+                }
+                    entry.animatedOffset?.value?.let { offset ->
+                        with(entry.animatedOrbiting?.value) heading@ {
+
+                            when (this@particle.shape) {
+
+                                is Shape.Segment -> {
+
+                                    canvasDrawLine(
                                         offset = offset,
                                         heading = this@heading,
-                                        bitmap = bitmap
+                                        size = this@particle.shape.size,
+                                        color = this@particle.color
                                     )
                                 }
 
-                                when (this@particle.shape) {
+                                is Shape.Rectangle -> {
 
-                                    is Shape.Segment -> {
+                                    canvasDrawRect(
+                                        offset = offset,
+                                        heading = this@heading,
+                                        size = this@particle.shape.size,
+                                        color = this@particle.color
+                                    )
+                                }
 
-                                        canvasDrawLine(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            size = this@particle.shape.size,
-                                            color = this@particle.color
-                                        )
-                                    }
+                                is Shape.RegularPolygon -> {
 
-                                    is Shape.Rectangle -> {
+                                    canvasDrawPolygon(
+                                        offset = offset,
+                                        heading = this@heading,
+                                        nVertices = this@particle.shape.nVertices,
+                                        size = this@particle.shape.size,
+                                        color = this@particle.color
+                                    )
+                                }
 
-                                        canvasDrawRect(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            size = this@particle.shape.size,
-                                            color = this@particle.color
-                                        )
-                                    }
+                                is Shape.Ellipse -> {
 
-                                    is Shape.RegularPolygon -> {
+                                    canvasDrawOval(
+                                        offset = offset,
+                                        heading = this@heading,
+                                        size = this@particle.shape.size,
+                                        color = this@particle.color
+                                    )
+                                }
 
-                                        canvasDrawPolygon(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            nVertices = this@particle.shape.nVertices,
-                                            size = this@particle.shape.size,
-                                            color = this@particle.color
-                                        )
-                                    }
+                                is Shape.CustomPolygonalShape -> {
 
-                                    is Shape.Ellipse -> {
+                                    canvasDrawCustomPolygonalShape(
+                                        offset = offset,
+                                        heading = this@heading,
+                                        path = this@particle.shape.path,
+                                        size = this@particle.shape.size,
+                                        color = this@particle.color
+                                    )
+                                }
 
-                                        canvasDrawOval(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            size = this@particle.shape.size,
-                                            color = this@particle.color
-                                        )
-                                    }
+                                is Shape.Unspecified -> {
 
-                                    is Shape.CustomPolygonalShape -> {
-
-                                        canvasDrawCustomPolygonalShape(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            path = this@particle.shape.path,
-                                            size = this@particle.shape.size,
-                                            color = this@particle.color
-                                        )
-                                    }
-
-                                    is Shape.Unspecified -> {
-
-                                        canvasDrawRect(
-                                            offset = offset,
-                                            heading = this@heading,
-                                            size = DoubleAxisMeasure(20F, 20F),
-                                            color = this@particle.color
-                                        )
-                                    }
+                                    canvasDrawRect(
+                                        offset = offset,
+                                        heading = this@heading,
+                                        size = DoubleAxisMeasure(20F, 20F),
+                                        color = this@particle.color
+                                    )
                                 }
                             }
                         }
                     }
-                }
             }
         }
     }
 }
 
-fun saludaAndonio() {
-    println("saluda Andonio")
+fun findShape(shape: Value<Shape>): Shape {
+    when (shape) {
+        is Value.Static -> {
+            return shape.data
+        }
+        is Value.Animated<*, *> -> {
+            val path = ((shape as Value.Animated<*,*>).animation as MorphAnimation).getCurrentMorphPath()
+            return Shape.CustomPolygonalShape(path)
+        }
+    }
 }
 
+@Suppress("UNCHECKED_CAST")
+fun <T> findValue(value: Value<T>): T {
+    return when (value) {
+        is Value.Static -> {
+            value.data
+        }
+        is Value.Animated<*, *> -> {
+            ((value.animation as Animation<*, *>).getCurrentValue()) as T
+        }
+    }
+}
+
+
+
 fun animateCanvas(
-    map: Map<Long, ParticleVisualizationModel>,
-    particlesAnimMap: MutableMap<Long, ParticleAnimationModel>,
+    map: Map<Long, AbstractElement>,
+    particlesAnimMap: MutableMap<Long, Animation>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
-    //saludaAndonio()
     CoroutineScope(Dispatchers.Default).launch {
         map.forEach { particle ->
             //println("posizione# ${particle.value.screenPosition}")
@@ -506,12 +517,12 @@ fun animateCanvas(
                 val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
                 val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
 
-                particlesAnimMap[particle.key] = ParticleAnimationModel(
+                particlesAnimMap[particle.key] = DelayedAnimation(
                     prev = currentScreenPosition,
                     next = nextScreenPosition,
                     animatedHeading = animatedHeading,
                     animatedOffset = animatedOffset,
-                    particleVisualizationModel = found.particleVisualizationModel,
+                    animationElement = found.animationElement,
                     duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
                 )
 
@@ -533,12 +544,12 @@ fun animateCanvas(
             }
             if (foundAnimation == null) {
                 println("pos prima ${particle.value.screenPosition}")
-                particlesAnimMap[particle.key] = ParticleAnimationModel(
+                particlesAnimMap[particle.key] = DelayedAnimation(
                     prev = particle.value.screenPosition,
                     next = particle.value.screenPosition,
                     animatedHeading = null,
                     animatedOffset = null,
-                    particleVisualizationModel = particle.value,
+                    animationElement = particle.value,
                     duration = particle.value.duration
                 )
                 isStartedCallback?.invoke()
@@ -547,82 +558,11 @@ fun animateCanvas(
     }
 }
 
-fun createAnimationIntoFuture(
-    map: ConcurrentHashMap<Long, ParticleVisualizationModel>,
-    particlesAnimMap: SnapshotStateMap<Long, ParticleAnimationModel>,
-    coroutineScope: CoroutineScope
-) {
-    CoroutineScope(Dispatchers.Default).launch {
-        map.forEach { particle ->
-            particle.value.directionUnitVector?.let { direction ->
-                val foundAnimation = particlesAnimMap[particle.key]
-                val currentScreenPosition = findScreenPosition(foundAnimation)
-                    ?: particle.value.screenPosition
-
-                val nextScreenPosition = ScreenPosition(
-                    offset = currentScreenPosition.offset +
-                            Offset (
-                                particle.value.duration * direction.x,
-                                particle.value.duration * direction.y
-                            ),
-                    heading = angleFromUnitVector(direction.x, direction.y)
-                )
-                CoroutineScope(Dispatchers.Default).launch {
-                    foundAnimation?.animatedOffset?.stop()
-                    foundAnimation?.animatedHeading?.stop()
-                }
-                val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
-                val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
-
-                particlesAnimMap[particle.key] = ParticleAnimationModel(
-                    prev = currentScreenPosition,
-                    next = nextScreenPosition,
-                    animatedHeading = animatedHeading,
-                    animatedOffset = animatedOffset,
-                    particleVisualizationModel = particle.value,
-                    duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
-                )
-
-                val currParticle = particlesAnimMap[particle.key]
-                currParticle?.let {
-                    CoroutineScope(Dispatchers.Default).launch {
-                        animatedOffset.animateTo(
-                            nextScreenPosition.offset,
-                            tween(durationMillis = it.duration, easing = LinearEasing)
-                        )
-                    }
-                    CoroutineScope(Dispatchers.Default).launch {
-                        animatedHeading.animateTo(
-                            nextScreenPosition.heading,
-                            tween(durationMillis = it.duration, easing = LinearEasing)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-fun findStaticOrAnimatedCurrentScreenPosition(found: ParticleAnimationModel): ScreenPosition {
+fun findStaticOrAnimatedCurrentScreenPosition(found: DelayedAnimation): ScreenPosition {
     val currOffset = found.animatedOffset?.value ?: found.next.offset
     val currHeading = found.animatedHeading?.value ?: found.next.heading
     println("offset: $currOffset")
     return ScreenPosition(currOffset, currHeading)
-}
-
-fun findScreenPosition(found: ParticleAnimationModel?): ScreenPosition? {
-    found?.let {
-        var currOffset = it.next.offset
-        var currHeading = it.next.heading
-        it.animatedOffset?.value?.let { currentAnimatedOffset ->
-            currOffset = currentAnimatedOffset
-        }
-        it.animatedHeading?.value?.let { currentAnimatedHeading ->
-            currHeading = currentAnimatedHeading
-        }
-        return ScreenPosition(currOffset, currHeading)
-    }
-    return null
 }
 
 fun angleFromUnitVector(x: Float, y: Float): Float {
@@ -632,10 +572,10 @@ fun angleFromUnitVector(x: Float, y: Float): Float {
 }
 
 @OptIn(FlowPreview::class)
-fun Flow<ParticleVisualizationModel>.toBatchedStateFlow(
+fun Flow<AbstractElement>.toBatchedStateFlow(
     samplingInterval: Long = 50L
-): StateFlow<Map<Long, ParticleVisualizationModel>> {
-    val sharedMap = mutableMapOf<Long, ParticleVisualizationModel>() // Shared map for the latest particles
+): StateFlow<Map<Long, AbstractElement>> {
+    val sharedMap = mutableMapOf<Long, AbstractElement>() // Shared map for the latest particles
 
     return this
         .onEach { particle ->

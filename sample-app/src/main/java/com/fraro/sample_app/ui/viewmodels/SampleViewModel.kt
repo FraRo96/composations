@@ -3,11 +3,10 @@ package com.fraro.sample_app.ui.viewmodels
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
+import com.fraro.composable_realtime_animations.data.models.AnimationElement
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
-import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.TrajectoryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.forEach
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -32,16 +30,16 @@ class SampleViewModel: ViewModel() {
 
     inner class AnimationEmitter {
 
-        private val _animationFlow = MutableSharedFlow<ParticleVisualizationModel>() // Source of particles
+        private val _animationFlow = MutableSharedFlow<AnimationElement>() // Source of particles
         private val batchedAnimationStateFlow = _animationFlow.toBatchedStateFlow(50L)
 
-        fun getTransformedFlow(): StateFlow<Map<Long, ParticleVisualizationModel>>
+        fun getTransformedFlow(): StateFlow<Map<Long, AnimationElement>>
                 = batchedAnimationStateFlow
 
         fun emitPoint(point: TrajectoryPoint) {
             CoroutineScope(Dispatchers.Default).launch {
                 _animationFlow.emit(
-                    ParticleVisualizationModel(
+                    AnimationElement(
                         id = point.id,
                         screenPosition = ScreenPosition(point.offset, 0f),
                         duration = point.deltaTime.toInt(),
@@ -59,7 +57,7 @@ class SampleViewModel: ViewModel() {
                 trajectory.forEach { point ->
                     println("nuova posizione: $point")
                     _animationFlow.emit(
-                        ParticleVisualizationModel(
+                        AnimationElement(
                             id = point.id,
                             screenPosition = ScreenPosition(point.offset, 0f),
                             duration = point.deltaTime,
@@ -82,7 +80,7 @@ class SampleViewModel: ViewModel() {
                     .flatMapMerge { (key, points) ->
                         points.asFlow()
                             .map { point ->
-                                ParticleVisualizationModel(
+                                AnimationElement(
                                     id = point.id,
                                     screenPosition = ScreenPosition(point.offset, 0f),
                                     duration = point.deltaTime.toInt(),

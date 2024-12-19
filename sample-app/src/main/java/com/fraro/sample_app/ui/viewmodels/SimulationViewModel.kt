@@ -2,10 +2,8 @@ package com.fraro.sample_app.ui.viewmodels
 
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.fraro.composable_realtime_animations.data.models.ParticleVisualizationModel
+import com.fraro.composable_realtime_animations.data.models.AnimationElement
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
-import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
 import com.fraro.sample_app.data.CalibrationPoint
 import com.fraro.sample_app.data.SimulationActor
 import com.fraro.sample_app.data.Trace
@@ -33,7 +31,7 @@ import kotlin.random.Random
 class SimulationViewModel : ViewModel() {
 
     val simulationModel = HashMap<Long, SimulationActor>()
-    lateinit var backwardFlow: Flow<ParticleVisualizationModel>
+    lateinit var backwardFlow: Flow<AnimationElement>
     lateinit var trajectories: Map<Long, List<CalibrationPoint>>
 
     val timer = Timer()
@@ -59,7 +57,7 @@ class SimulationViewModel : ViewModel() {
 
                         println("id ${point.id}, chiave $key")
 
-                        ParticleVisualizationModel(
+                        AnimationElement(
                             id = key,
                             screenPosition = point.screenPosition,
                             duration = duration.toInt(),

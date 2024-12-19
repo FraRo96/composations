@@ -1,20 +1,71 @@
 package com.fraro.composable_realtime_animations.data.models
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 
-data class ParticleVisualizationModel(
-    val id: Long,
-    val screenPosition: ScreenPosition,
+/*data class PastOffsetAnimationElement(
+    override val id: Long,
+    override val shape: Shape,
+    override val color: Color,
+    override val screenPosition: ScreenPosition,
+    override val imageBitmap: ImageBitmap? = null,
     val duration: Int,
     val delayFactor: Float = 0F,
-    val directionUnitVector: Offset? = null, //useful only if isForward is true in canvas
-    val shape: Shape = Shape.Unspecified,
-    val color: Color? = null,
-    val bitmap: ImageBitmap? = null,
-)
+) : AnimationElement
+
+data class FutureOffsetAnimationElement(
+    override val id: Long,
+    override val shape: Shape,
+    override val color: Color,
+    override val screenPosition: ScreenPosition,
+    override val imageBitmap: ImageBitmap? = null,
+    val directionUnitVector: Offset
+): AnimationElement */
+
+interface AbstractElement {
+    val id: Long
+}
+
+interface Element<T, U> : AbstractElement {
+    fun getData(): U
+    val initialValue: T
+}
+
+interface DelayedElement<T, U> : Element<T, U> {
+    val duration: Long
+    val delayFactor: Float
+    val isConstant: Boolean
+}
+
+interface VectorElement<T, U> : Element<T, U> {
+    val directionVector: Pair<Float, Float>
+}
+
+class DelayedElementDecorator<T, U, V>(
+    override val id: Long,
+    override val duration: Long,
+    override val delayFactor: Float,
+    override val isConstant: Boolean,
+    override val initialValue: T,
+    private val wrappedElement: Element<V, U>
+) : DelayedElement<T, U> {
+
+    override fun getData(): U {
+        return wrappedElement.getData()
+    }
+}
+
+class VectorElementDecorator<T, U, V>(
+    override val id: Long,
+    override val directionVector: Pair<Float, Float>,
+    override val initialValue: T,
+    private val wrappedElement: Element<V, U>
+) : VectorElement<T, U> {
+
+    override fun getData(): U {
+        return wrappedElement.getData()
+    }
+}
 
 data class ScreenPosition(
     val offset: Offset,
