@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -25,8 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -35,8 +34,6 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.Morph
@@ -46,14 +43,15 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.AbstractElement
-import com.fraro.composable_realtime_animations.data.models.ElementVisualization
 import com.fraro.composable_realtime_animations.data.models.Animation
+import com.fraro.composable_realtime_animations.data.models.DelayedElementDecorator
+import com.fraro.composable_realtime_animations.data.models.Element
 import com.fraro.composable_realtime_animations.data.models.MorphAnimation
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.Size
 import com.fraro.composable_realtime_animations.data.models.Value
+import com.fraro.composable_realtime_animations.data.models.VectorElementDecorator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -69,10 +67,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 
+import androidx.compose.ui.geometry.Size as ComposeSize
+
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun RealtimeAnimationCanvas(
-    animationFlow: StateFlow<Map<Long, AbstractElement>>,
+    animationFlow: StateFlow<Map<Long, Element<*>>>,
     samplingInterval: Int = 100,
     isStartedCallback: (() -> Unit)? = null
 ) {
@@ -103,8 +103,8 @@ fun RealtimeAnimationCanvas(
         val context = LocalContext.current
         val lifecycleOwner = context as ViewModelStoreOwner
 
-        val particlesAnimMap = remember {
-            mutableMapOf<Long, ElementVisualization>()
+        val elements = remember {
+            mutableMapOf<Long, MutableMap<Int, Value<*>>>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -112,14 +112,14 @@ fun RealtimeAnimationCanvas(
             minActiveState = Lifecycle.State.RESUMED
         )
 
-        LaunchedEffect(key1 = collectedFlow) {
-            animateCanvas(
-                collectedFlow,
-                particlesAnimMap,
-                coroutineScope,
-                isStartedCallback
-            )
-        }
+        //LaunchedEffect(key1 = collectedFlow) {
+        animateCanvas(
+            collectedFlow,
+            elements,
+            coroutineScope,
+            isStartedCallback
+        )
+        //}
 
         val shapeA = remember {
             RoundedPolygon(
@@ -186,15 +186,17 @@ fun RealtimeAnimationCanvas(
             modifier = Modifier.fillMaxSize()
         ) {
 
+            //TODO: animate blendMode, alpha and other properties
+
             fun canvasDrawRect(
                 offset: Offset,
                 heading: Float?,
-                size: DoubleAxisMeasure?,
+                size: Size.DoubleAxisMeasure?,
                 color: Color?
             ) {
-                val rectWidth = //size?.width ?:
+                val rectWidth = size?.width ?:
                     100f
-                val rectHeight = //size?.height ?:
+                val rectHeight = size?.height ?:
                     100f
                 rotate(
                     degrees = heading ?: 0F,
@@ -208,7 +210,7 @@ fun RealtimeAnimationCanvas(
                             x = offset.x,
                             y = offset.y
                         ),
-                        size = Size(
+                        size = ComposeSize(
                             width = rectWidth,
                             height = rectHeight
                         ),
@@ -221,10 +223,10 @@ fun RealtimeAnimationCanvas(
             fun canvasDrawLine(
                 offset: Offset,
                 heading: Float?,
-                size: SingleAxisMeasure?,
+                size: Size.DoubleAxisMeasure?,
                 color: Color?
             ) {
-                val length = size?.size ?: 40F
+                val length = size?.height ?: 40F
                 rotate(
                     degrees = heading ?: 0F,
                     pivot = Offset(
@@ -250,7 +252,7 @@ fun RealtimeAnimationCanvas(
             fun canvasDrawOval(
                 offset: Offset,
                 heading: Float?,
-                size: DoubleAxisMeasure?,
+                size: Size.DoubleAxisMeasure?,
                 color: Color?
             ) {
                 val width = size?.width ?: 20f
@@ -267,7 +269,7 @@ fun RealtimeAnimationCanvas(
                             x = offset.x - width / 2,
                             y = offset.y - height / 2,
                         ),
-                        size = Size(
+                        size = ComposeSize(
                             width = width,
                             height = height
                         ),
@@ -281,7 +283,7 @@ fun RealtimeAnimationCanvas(
                 offset: Offset,
                 heading: Float?,
                 nVertices: Int,
-                size: SingleAxisMeasure?,
+                size: Size.SingleAxisMeasure?,
                 color: Color?
             ) {
 
@@ -311,7 +313,7 @@ fun RealtimeAnimationCanvas(
                 offset: Offset,
                 path: Path,
                 heading: Float?,
-                size: RescaleFactor?,
+                size: Size.RescaleFactor?,
                 color: Color?
             ) {
                 val scale = size?.scale ?: 100F
@@ -335,15 +337,7 @@ fun RealtimeAnimationCanvas(
                             top = offset.y + pivotY
                         ) {
                             drawPath(
-                                path = CustomRotatingMorphShape(
-                                    morph,
-                                    animatedProgress.value,
-                                    animatedRotation.value
-                                ).createPath(
-                                    Size(50f,50f),
-                                    offset.x,
-                                    offset.y
-                                ), //path,
+                                path = path,
                                 color = color ?: Color.Black.copy(alpha = 0.3F)
                             )
                         }
@@ -351,7 +345,7 @@ fun RealtimeAnimationCanvas(
                 }
             }
 
-            particlesAnimMap.values.forEach { particle ->
+            elements.values.forEach { particle ->
                 val shape = findShape(particle.shape)
                 val color = findValue(particle.color)
                 val size = findValue(particle.size)
@@ -360,16 +354,37 @@ fun RealtimeAnimationCanvas(
 
                 when (shape) {
                     is Shape.Segment -> {
-
+                        canvasDrawLine(
+                            offset = offset,
+                            heading = rotation.toFloat(),
+                            size = size as Size.DoubleAxisMeasure,
+                            color = color
+                        )
                     }
                     is Shape.Ellipse -> {
-
+                        canvasDrawOval(
+                            offset = offset,
+                            heading = rotation.toFloat(),
+                            size = size as Size.DoubleAxisMeasure,
+                            color = color
+                        )
                     }
                     is Shape.Rectangle -> {
-
+                        canvasDrawRect(
+                            offset = offset,
+                            heading = rotation.toFloat(),
+                            size = size as Size.DoubleAxisMeasure,
+                            color = color
+                        )
                     }
                     is Shape.RegularPolygon -> {
-
+                        canvasDrawPolygon(
+                            offset = offset,
+                            heading = rotation.toFloat(),
+                            nVertices = shape.nVertices,
+                            size = size as Size.SingleAxisMeasure,
+                            color = color
+                        )
                     }
                     is Shape.CustomPolygonalShape -> {
                         canvasDrawCustomPolygonalShape(
@@ -377,7 +392,7 @@ fun RealtimeAnimationCanvas(
                             heading = rotation.toFloat(),
                             path = shape.path,
                             size = size as Size.RescaleFactor,
-                            color = Color.Red
+                            color = color
                         )
                     }
 
@@ -385,119 +400,106 @@ fun RealtimeAnimationCanvas(
 
                     }
                 }
-                val path = ((particle.shape as Value.Animated<*,*>).animation as MorphAnimation).getCurrentMorphPath()
-
-                }
-                    entry.animatedOffset?.value?.let { offset ->
-                        with(entry.animatedOrbiting?.value) heading@ {
-
-                            when (this@particle.shape) {
-
-                                is Shape.Segment -> {
-
-                                    canvasDrawLine(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        size = this@particle.shape.size,
-                                        color = this@particle.color
-                                    )
-                                }
-
-                                is Shape.Rectangle -> {
-
-                                    canvasDrawRect(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        size = this@particle.shape.size,
-                                        color = this@particle.color
-                                    )
-                                }
-
-                                is Shape.RegularPolygon -> {
-
-                                    canvasDrawPolygon(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        nVertices = this@particle.shape.nVertices,
-                                        size = this@particle.shape.size,
-                                        color = this@particle.color
-                                    )
-                                }
-
-                                is Shape.Ellipse -> {
-
-                                    canvasDrawOval(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        size = this@particle.shape.size,
-                                        color = this@particle.color
-                                    )
-                                }
-
-                                is Shape.CustomPolygonalShape -> {
-
-                                    canvasDrawCustomPolygonalShape(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        path = this@particle.shape.path,
-                                        size = this@particle.shape.size,
-                                        color = this@particle.color
-                                    )
-                                }
-
-                                is Shape.Unspecified -> {
-
-                                    canvasDrawRect(
-                                        offset = offset,
-                                        heading = this@heading,
-                                        size = DoubleAxisMeasure(20F, 20F),
-                                        color = this@particle.color
-                                    )
-                                }
-                            }
-                        }
-                    }
             }
         }
     }
 }
 
-fun findShape(shape: Value<Shape>): Shape {
+fun findShape(shape: Value): Shape {
     when (shape) {
-        is Value.Static -> {
-            return shape.data
+        is Value.Static<*> -> {
+            return shape.data as Shape
         }
-        is Value.Animated<*, *> -> {
-            val path = ((shape as Value.Animated<*,*>).animation as MorphAnimation).getCurrentMorphPath()
+        is Value.Animated<*> -> {
+            val path = (shape.animation as MorphAnimation).getCurrentMorphPath()
             return Shape.CustomPolygonalShape(path)
         }
+        is Value.Stop -> { throw Exception(
+            "Unexpected class. Value.Stop is not a valid value for Canvas draw."
+        ) }
     }
 }
 
 @Suppress("UNCHECKED_CAST")
-fun <T> findValue(value: Value<T>): T {
+fun <T> findValue(value: Value): T {
     return when (value) {
-        is Value.Static -> {
-            value.data
+        is Value.Static<*> -> {
+            value.data as T
         }
-        is Value.Animated<*, *> -> {
-            ((value.animation as Animation<*, *>).getCurrentValue()) as T
+        is Value.Animated<*> -> {
+            (value.animation.getCurrentValue()) as T
         }
+
+        is Value.Stop -> { throw Exception(
+            "Unexpected class. Value.Stop is not a valid value for Canvas draw."
+        ) }
     }
 }
 
-
-
 fun animateCanvas(
-    map: Map<Long, AbstractElement>,
-    particlesAnimMap: MutableMap<Long, Animation>,
+    flow: Map<Long, Element<*>>,
+    elements: MutableMap<Long, MutableMap<Int, Value<*>>>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
     CoroutineScope(Dispatchers.Default).launch {
-        map.forEach { particle ->
+        flow.forEach { elementData ->
+            when (elementData.value) {
+                is DelayedElementDecorator<*> -> {
+                    elements[elementData.key]?.let { existingElementViz ->
+                        elementData.value.getData()
+                            .values.forEachIndexed { index, newElementViz ->
+                                when (newElementViz) {
+                                    is Value.Stop -> {
+                                        val existingAnimated = (existingElementViz[index] as? Value.Animated<*>)
+                                        existingAnimated?.let {
+                                            val existingState = it.animation.animatable.value
+                                            it.animation.animatable.stop()
+                                            existingElementViz[index] = Value.Static(existingState)
+                                        }
+                                    }
+                                    is Value.Animated -> {
+                                        when (existingElementViz[index]) {
+                                            is Value.Static -> {
+                                                val existingValueHolder = (existingElementViz[index]
+                                                        as Value.Static<*>).valueHolder
+
+                                                existingElementViz[index] = Value.Animated(
+                                                    existingValueHolder.animateFromStatic(
+                                                        newElementViz.animation.duration
+                                                    )
+                                                )
+                                                coroutineScope.launch {
+                                                    (existingElementViz[index] as Value.Animated<*>)
+                                                        .animation.animatable.animateTo(
+                                                            newElementViz.animation.initialValue,
+                                                            // todo customize
+                                                            tween(durationMillis = it.duration, easing = LinearEasing)
+                                                        )
+                                                }
+                                            }
+                                        }
+                                        coroutineScope.launch {
+                                            existingElementViz[index].animateTo(
+                                                nextScreenPosition.offset,
+                                                tween(durationMillis = it.duration, easing = LinearEasing)
+                                            )
+                                        }
+                                    }
+
+                                    is Value.Static<*> -> { }
+                                }
+                                existingElementViz[index] = newElementViz
+                            }
+                    }
+                    elements[element.key] = element.value.getData()
+                }
+                is VectorElementDecorator<*,*> -> {
+
+                }
+            }
             //println("posizione# ${particle.value.screenPosition}")
-            val foundAnimation = particlesAnimMap[particle.key]
+            val foundAnimation = elements[particle.key]
             foundAnimation?.let { found ->
                 val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
                 val nextUnscaledScreenPosition = particle.value.screenPosition
@@ -517,7 +519,7 @@ fun animateCanvas(
                 val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
                 val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
 
-                particlesAnimMap[particle.key] = DelayedAnimation(
+                elements[particle.key] = DelayedAnimation(
                     prev = currentScreenPosition,
                     next = nextScreenPosition,
                     animatedHeading = animatedHeading,
@@ -526,7 +528,7 @@ fun animateCanvas(
                     duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
                 )
 
-                val currParticle = particlesAnimMap[particle.key]
+                val currParticle = elements[particle.key]
                 currParticle?.let {
                     coroutineScope.launch {
                         animatedOffset.animateTo(
@@ -539,12 +541,12 @@ fun animateCanvas(
                             nextScreenPosition.heading,
                             tween(durationMillis = it.duration, easing = LinearEasing)
                         )
-                    }
+                   }
                 }
             }
             if (foundAnimation == null) {
                 println("pos prima ${particle.value.screenPosition}")
-                particlesAnimMap[particle.key] = DelayedAnimation(
+                elements[particle.key] = DelayedAnimation(
                     prev = particle.value.screenPosition,
                     next = particle.value.screenPosition,
                     animatedHeading = null,
@@ -558,13 +560,6 @@ fun animateCanvas(
     }
 }
 
-fun findStaticOrAnimatedCurrentScreenPosition(found: DelayedAnimation): ScreenPosition {
-    val currOffset = found.animatedOffset?.value ?: found.next.offset
-    val currHeading = found.animatedHeading?.value ?: found.next.heading
-    println("offset: $currOffset")
-    return ScreenPosition(currOffset, currHeading)
-}
-
 fun angleFromUnitVector(x: Float, y: Float): Float {
     val angleRadians = atan2(y, x)
     val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
@@ -572,10 +567,10 @@ fun angleFromUnitVector(x: Float, y: Float): Float {
 }
 
 @OptIn(FlowPreview::class)
-fun Flow<AbstractElement>.toBatchedStateFlow(
+fun Flow<Element<*>>.toBatchedStateFlow(
     samplingInterval: Long = 50L
-): StateFlow<Map<Long, AbstractElement>> {
-    val sharedMap = mutableMapOf<Long, AbstractElement>() // Shared map for the latest particles
+): StateFlow<Map<Long, Element<*>>> {
+    val sharedMap = mutableMapOf<Long, Element<*>>() // Shared map for the latest particles
 
     return this
         .onEach { particle ->
@@ -597,48 +592,3 @@ fun Flow<AbstractElement>.toBatchedStateFlow(
             initialValue = mapOf()
         )
 }
-
-class CustomRotatingMorphShape(
-    private val morph: Morph,
-    private val percentage: Float,
-    private val rotation: Float
-) : androidx.compose.ui.graphics.Shape {
-
-    private val matrix = Matrix()
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
-        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
-        matrix.scale(size.width / 2f, size.height / 2f)
-        matrix.translate(1f, 1f)
-        matrix.rotateZ(rotation)
-
-        val path = morph.toPath(progress = percentage).asComposePath()
-        path.transform(matrix)
-
-        return Outline.Generic(path)
-    }
-
-    fun createPath(
-        size: Size,
-        translateX: Float,
-        translateY: Float
-    ): Path {
-        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
-        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
-        //matrix.scale(size.width / 2f, size.height / 2f)
-        //matrix.translate(translateX, translateY)
-        //matrix.rotateZ(rotation)
-
-        val path = morph.toPath(progress = percentage).asComposePath()
-        //path.transform(matrix)
-
-        return path
-    }
-}
-
-
-
