@@ -12,13 +12,20 @@ enum class Animations {
 }
 
 sealed interface State<T> {
-    data class Start<T> (val animation: Animation<T>) : State<T>
-    data class Existing<T> (val animation: Animation<T>) : State<T>
+    data class Start<T> (val visualDescriptor: VisualDescriptor<T>) : State<T>
+    data class Animated<T> (val animation: Animation<T>) : State<T>
+    data class Fixed<T> (val targetValue: T) : State<T>
     data object Stop : State<Any>
     data object Forget: State<Any>
 }
 
-open class Animation<T>(
+class Animation<T>(
+    val animationSpec: AnimationSpec<T>,
+    val targetValue: T
+)
+
+
+open class VisualDescriptor<T>(
     var currentValue: T,
     //val duration: Int,
     var animatable: Animatable<T, AnimationVector>,
@@ -42,16 +49,31 @@ open class Animation<T>(
         currentValue = animatable.value
     }
 
-    suspend fun animateTo(targetValue: Any?) {
-        val targetValueCast = targetValue as T
+    suspend fun animateTo(targetValue: T) {
+        animatable.stop()
+
         animatable.animateTo(
-            targetValue = targetValueCast,
+            targetValue = targetValue,
             animationSpec = animationSpec,
+        )
+    }
+
+    suspend fun animateTo(
+        targetValue: T,
+        animationSpec: AnimationSpec<T>
+    ) {
+        animatable.stop()
+
+        this.animationSpec = animationSpec
+
+        animatable.animateTo(
+            targetValue = targetValue,
+            animationSpec = this.animationSpec,
         )
     }
 }
 
-class MorphAnimation (
+class MorphVisualDescriptor (
     currentValue: Float,
     duration: Int,
     animatable: Animatable<Float, AnimationVector>,
@@ -61,7 +83,7 @@ class MorphAnimation (
     val shape1: Shape,
     val shape2: Shape,
     val morph: Morph
-) : Animation<Float>(
+) : VisualDescriptor<Float>(
                         currentValue,
                         //duration,
                         animatable,

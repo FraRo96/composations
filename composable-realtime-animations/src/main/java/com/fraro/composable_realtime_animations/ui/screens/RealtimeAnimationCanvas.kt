@@ -2,6 +2,7 @@ package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
@@ -44,13 +45,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.Animations
 import com.fraro.composable_realtime_animations.data.models.DelayedElementDecorator
 import com.fraro.composable_realtime_animations.data.models.Element
-import com.fraro.composable_realtime_animations.data.models.MorphAnimation
+import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.Size
 import com.fraro.composable_realtime_animations.data.models.State
-import com.fraro.composable_realtime_animations.data.models.State.Existing
+import com.fraro.composable_realtime_animations.data.models.State.*
 import com.fraro.composable_realtime_animations.data.models.VectorElementDecorator
+import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -103,7 +105,7 @@ fun RealtimeAnimationCanvas(
         val lifecycleOwner = context as ViewModelStoreOwner
 
         val elements = remember {
-            mutableMapOf<Long, MutableMap<Int, State<*>>>()
+            mutableMapOf<Long, MutableMap<Int, VisualDescriptor<*>>>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -346,16 +348,16 @@ fun RealtimeAnimationCanvas(
 
             elements.values.forEach { element ->
 
-                val rotation = (element[Animations.ROTATION.ordinal] as Existing)
-                    .animation.getCurrentValue() as Float
-                val shape = ((element[Animations.SHAPE.ordinal] as Existing)
-                    .animation as MorphAnimation).getCurrentShape()
-                val color = (element[Animations.COLOR.ordinal] as Existing)
-                    .animation.getCurrentValue() as Color
-                val size = (element[Animations.SIZE.ordinal] as Existing)
-                    .animation.getCurrentValue() as Size
-                val offset = (element[Animations.OFFSET.ordinal] as Existing)
-                    .animation.getCurrentValue() as Offset
+                val rotation = element[Animations.ROTATION.ordinal]
+                    ?.getCurrentValue() as Float
+                val shape = (element[Animations.SHAPE.ordinal] as MorphVisualDescriptor)
+                    .getCurrentShape()
+                val color = element[Animations.COLOR.ordinal]
+                    ?.getCurrentValue() as Color
+                val size = element[Animations.SIZE.ordinal]
+                    ?.getCurrentValue() as Size
+                val offset = element[Animations.OFFSET.ordinal]
+                    ?.getCurrentValue() as Offset
 
                 when (shape) {
                     is Shape.Segment -> {
@@ -410,9 +412,45 @@ fun RealtimeAnimationCanvas(
     }
 }
 
+suspend fun <T,V> animateDescriptor(
+    descriptors: MutableMap<Int, VisualDescriptor<*>>,
+    index: Int,
+    descriptor: VisualDescriptor<T>?,
+    visualUpdate: State<out V>
+) {
+
+    /* same map index, same type */
+    val visualUpdateCast = visualUpdate as State<out T>
+
+    when (visualUpdateCast) {
+        is Stop -> {
+            descriptor?.stopAnimation()
+        }
+
+        is Fixed -> {
+            descriptor?.animateTo(visualUpdateCast.targetValue)
+        }
+
+        is Animated -> {
+            descriptor?.animateTo(
+                visualUpdateCast.animation.targetValue,
+                visualUpdateCast.animation.animationSpec as AnimationSpec<T>
+            )
+        }
+
+        is Forget -> {
+            descriptors.remove(index)
+        }
+
+        is Start -> {
+            descriptors[index] = visualUpdateCast.visualDescriptor
+        }
+    }
+}
+
 fun animateCanvas(
     flow: Map<Long, Element<*>>,
-    elements: MutableMap<Long, MutableMap<Int, State<*>>>,
+    elements: MutableMap<Long, MutableMap<Int, VisualDescriptor<*>>>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
@@ -420,118 +458,23 @@ fun animateCanvas(
         flow.forEach { elementData ->
             when (elementData.value) {
                 is DelayedElementDecorator<*> -> {
-                    elements[elementData.key]?.let { existingElementViz ->
+                    elements[elementData.key]?.let { descriptors ->
                         elementData.value.getData()
-                            .values.forEachIndexed { index, newElementViz ->
-                                when (newElementViz) {
-                                    is State.Stop -> {
-                                        val existingExisting = (existingElementViz[index] as? State.Existing<*>)
-                                        existingExisting?.let {
-                                            val existingState = it.animation.animatable.value
-                                            it.animation.animatable.stop()
-                                            existingElementViz[index] = State.Static(existingState)
-                                        }
-                                    }
-                                    is Existing -> {
-                                        newElementViz.animation.animateTo(
-                                            newElementViz.animation.currentValue
-                                        )
-                                        when (existingElementViz[index]) {
-                                            is State.Static -> {
-                                                val existingStateHolder = (existingElementViz[index]
-                                                        as State.Static<*>).valueHolder
-
-                                                existingElementViz[index] = State.Existing(
-                                                    existingStateHolder.animateFromStatic(
-                                                        newElementViz.animation.duration
-                                                    )
-                                                )
-                                                coroutineScope.launch {
-                                                    (existingElementViz[index] as State.Existing<*>)
-                                                        .animation.animatable.animateTo(
-                                                            newElementViz.animation.currentValue,
-                                                            // todo customize
-                                                            tween(durationMillis = it.duration, easing = LinearEasing)
-                                                        )
-                                                }
-                                            }
-                                        }
-                                        coroutineScope.launch {
-                                            existingElementViz[index].animateTo(
-                                                nextScreenPosition.offset,
-                                                tween(durationMillis = it.duration, easing = LinearEasing)
-                                            )
-                                        }
-                                    }
-
-                                    is State.Static<*> -> { }
+                            .values.forEachIndexed { index, visualUpdate ->
+                                coroutineScope.launch {
+                                    animateDescriptor(
+                                        descriptors,
+                                        index,
+                                        descriptors[index],
+                                        visualUpdate
+                                    )
                                 }
-                                existingElementViz[index] = newElementViz
                             }
                     }
-                    elements[element.key] = element.value.getData()
                 }
-                is VectorElementDecorator<*,*> -> {
+                is VectorElementDecorator<*> -> {
 
                 }
-            }
-            //println("posizione# ${particle.value.screenPosition}")
-            val foundAnimation = elements[particle.key]
-            foundAnimation?.let { found ->
-                val currentScreenPosition = findStaticOrAnimatedCurrentScreenPosition(found)
-                val nextUnscaledScreenPosition = particle.value.screenPosition
-                //println("pos corrente ${currentScreenPosition.offset}")
-                //println("pos prossima ${nextScreenPosition.offset}")
-                val nextScreenPosition = ScreenPosition(
-                    offset = nextUnscaledScreenPosition.offset
-                            + (nextUnscaledScreenPosition.offset
-                            - currentScreenPosition.offset) * particle.value.delayFactor,
-                    heading = nextUnscaledScreenPosition.heading
-                            + nextUnscaledScreenPosition.heading * particle.value.delayFactor
-                )
-                coroutineScope.launch {
-                    found.animatedOffset?.stop()
-                    found.animatedHeading?.stop()
-                }
-                val animatedOffset = Animatable(currentScreenPosition.offset, Offset.VectorConverter)
-                val animatedHeading = Animatable(currentScreenPosition.heading, Float.VectorConverter)
-
-                elements[particle.key] = DelayedAnimation(
-                    prev = currentScreenPosition,
-                    next = nextScreenPosition,
-                    animatedHeading = animatedHeading,
-                    animatedOffset = animatedOffset,
-                    animationElement = found.animationElement,
-                    duration = particle.value.duration + (particle.value.duration * particle.value.delayFactor).roundToInt()
-                )
-
-                val currParticle = elements[particle.key]
-                currParticle?.let {
-                    coroutineScope.launch {
-                        animatedOffset.animateTo(
-                            nextScreenPosition.offset,
-                            tween(durationMillis = it.duration, easing = LinearEasing)
-                        )
-                    }
-                   coroutineScope.launch {
-                        animatedHeading.animateTo(
-                            nextScreenPosition.heading,
-                            tween(durationMillis = it.duration, easing = LinearEasing)
-                        )
-                   }
-                }
-            }
-            if (foundAnimation == null) {
-                println("pos prima ${particle.value.screenPosition}")
-                elements[particle.key] = DelayedAnimation(
-                    prev = particle.value.screenPosition,
-                    next = particle.value.screenPosition,
-                    animatedHeading = null,
-                    animatedOffset = null,
-                    animationElement = particle.value,
-                    duration = particle.value.duration
-                )
-                isStartedCallback?.invoke()
             }
         }
     }
