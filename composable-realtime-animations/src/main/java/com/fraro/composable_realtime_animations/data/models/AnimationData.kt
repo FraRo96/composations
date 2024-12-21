@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Path
 
 interface Element<T> {
     val id: Long
-    fun getData(): MutableMap<Int, Value<T>>
+    fun getData(): MutableMap<Int, State<T>>
     val initialValue: T
 }
 
@@ -28,7 +28,7 @@ class DelayedElementDecorator<T>(
     private val wrappedElement: Element<T>
 ) : DelayedElement<T> {
 
-    override fun getData(): MutableMap<Int, Value<T>> {
+    override fun getData(): MutableMap<Int, State<T>> {
         return wrappedElement.getData()
     }
 }
@@ -40,7 +40,7 @@ class VectorElementDecorator<T>(
     private val wrappedElement: Element<T>
 ) : VectorElement<T> {
 
-    override fun getData(): MutableMap<Int, Value<T>> {
+    override fun getData(): MutableMap<Int, State<T>> {
         return wrappedElement.getData()
     }
 }
@@ -62,7 +62,7 @@ sealed class Shape(val description: String) {
     data class Ellipse(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(100F, 100F)) : Shape("Ellipse")
     data class CustomPolygonalShape(
         val path: Path,
-        val size: Size.RescaleFactor = Size.RescaleFactor(100F)
+        val size: Size.RescaleFactor = Size.RescaleFactor(1F)
     ) : Shape("Custom path")
 
     companion object {

@@ -2,10 +2,8 @@ package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -43,14 +41,15 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.Animation
+import com.fraro.composable_realtime_animations.data.models.Animations
 import com.fraro.composable_realtime_animations.data.models.DelayedElementDecorator
 import com.fraro.composable_realtime_animations.data.models.Element
 import com.fraro.composable_realtime_animations.data.models.MorphAnimation
 import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.Size
-import com.fraro.composable_realtime_animations.data.models.Value
+import com.fraro.composable_realtime_animations.data.models.State
+import com.fraro.composable_realtime_animations.data.models.State.Existing
 import com.fraro.composable_realtime_animations.data.models.VectorElementDecorator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +103,7 @@ fun RealtimeAnimationCanvas(
         val lifecycleOwner = context as ViewModelStoreOwner
 
         val elements = remember {
-            mutableMapOf<Long, MutableMap<Int, Value<*>>>()
+            mutableMapOf<Long, MutableMap<Int, State<*>>>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -345,18 +344,24 @@ fun RealtimeAnimationCanvas(
                 }
             }
 
-            elements.values.forEach { particle ->
-                val shape = findShape(particle.shape)
-                val color = findValue(particle.color)
-                val size = findValue(particle.size)
-                val offset = findValue(particle.offset)
-                val rotation = findValue(particle.rotation)
+            elements.values.forEach { element ->
+
+                val rotation = (element[Animations.ROTATION.ordinal] as Existing)
+                    .animation.getCurrentValue() as Float
+                val shape = ((element[Animations.SHAPE.ordinal] as Existing)
+                    .animation as MorphAnimation).getCurrentShape()
+                val color = (element[Animations.COLOR.ordinal] as Existing)
+                    .animation.getCurrentValue() as Color
+                val size = (element[Animations.SIZE.ordinal] as Existing)
+                    .animation.getCurrentValue() as Size
+                val offset = (element[Animations.OFFSET.ordinal] as Existing)
+                    .animation.getCurrentValue() as Offset
 
                 when (shape) {
                     is Shape.Segment -> {
                         canvasDrawLine(
                             offset = offset,
-                            heading = rotation.toFloat(),
+                            heading = rotation,
                             size = size as Size.DoubleAxisMeasure,
                             color = color
                         )
@@ -405,40 +410,9 @@ fun RealtimeAnimationCanvas(
     }
 }
 
-fun findShape(shape: Value): Shape {
-    when (shape) {
-        is Value.Static<*> -> {
-            return shape.data as Shape
-        }
-        is Value.Animated<*> -> {
-            val path = (shape.animation as MorphAnimation).getCurrentMorphPath()
-            return Shape.CustomPolygonalShape(path)
-        }
-        is Value.Stop -> { throw Exception(
-            "Unexpected class. Value.Stop is not a valid value for Canvas draw."
-        ) }
-    }
-}
-
-@Suppress("UNCHECKED_CAST")
-fun <T> findValue(value: Value): T {
-    return when (value) {
-        is Value.Static<*> -> {
-            value.data as T
-        }
-        is Value.Animated<*> -> {
-            (value.animation.getCurrentValue()) as T
-        }
-
-        is Value.Stop -> { throw Exception(
-            "Unexpected class. Value.Stop is not a valid value for Canvas draw."
-        ) }
-    }
-}
-
 fun animateCanvas(
     flow: Map<Long, Element<*>>,
-    elements: MutableMap<Long, MutableMap<Int, Value<*>>>,
+    elements: MutableMap<Long, MutableMap<Int, State<*>>>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
@@ -450,29 +424,32 @@ fun animateCanvas(
                         elementData.value.getData()
                             .values.forEachIndexed { index, newElementViz ->
                                 when (newElementViz) {
-                                    is Value.Stop -> {
-                                        val existingAnimated = (existingElementViz[index] as? Value.Animated<*>)
-                                        existingAnimated?.let {
+                                    is State.Stop -> {
+                                        val existingExisting = (existingElementViz[index] as? State.Existing<*>)
+                                        existingExisting?.let {
                                             val existingState = it.animation.animatable.value
                                             it.animation.animatable.stop()
-                                            existingElementViz[index] = Value.Static(existingState)
+                                            existingElementViz[index] = State.Static(existingState)
                                         }
                                     }
-                                    is Value.Animated -> {
+                                    is Existing -> {
+                                        newElementViz.animation.animateTo(
+                                            newElementViz.animation.currentValue
+                                        )
                                         when (existingElementViz[index]) {
-                                            is Value.Static -> {
-                                                val existingValueHolder = (existingElementViz[index]
-                                                        as Value.Static<*>).valueHolder
+                                            is State.Static -> {
+                                                val existingStateHolder = (existingElementViz[index]
+                                                        as State.Static<*>).valueHolder
 
-                                                existingElementViz[index] = Value.Animated(
-                                                    existingValueHolder.animateFromStatic(
+                                                existingElementViz[index] = State.Existing(
+                                                    existingStateHolder.animateFromStatic(
                                                         newElementViz.animation.duration
                                                     )
                                                 )
                                                 coroutineScope.launch {
-                                                    (existingElementViz[index] as Value.Animated<*>)
+                                                    (existingElementViz[index] as State.Existing<*>)
                                                         .animation.animatable.animateTo(
-                                                            newElementViz.animation.initialValue,
+                                                            newElementViz.animation.currentValue,
                                                             // todo customize
                                                             tween(durationMillis = it.duration, easing = LinearEasing)
                                                         )
@@ -487,7 +464,7 @@ fun animateCanvas(
                                         }
                                     }
 
-                                    is Value.Static<*> -> { }
+                                    is State.Static<*> -> { }
                                 }
                                 existingElementViz[index] = newElementViz
                             }
