@@ -1,11 +1,9 @@
 package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -42,16 +40,13 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.Animations
-import com.fraro.composable_realtime_animations.data.models.DelayedElementDecorator
-import com.fraro.composable_realtime_animations.data.models.Element
+import com.fraro.composable_realtime_animations.data.models.AnimationType
 import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
-import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.Size
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.*
-import com.fraro.composable_realtime_animations.data.models.VectorElementDecorator
+import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,14 +61,13 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.atan2
-import kotlin.math.roundToInt
 
 import androidx.compose.ui.geometry.Size as ComposeSize
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun RealtimeAnimationCanvas(
-    animationFlow: StateFlow<Map<Long, Element<*>>>,
+    animationFlow: StateFlow<Map<Long, StateHolder<*,*>>>,
     samplingInterval: Int = 100,
     isStartedCallback: (() -> Unit)? = null
 ) {
@@ -105,7 +99,7 @@ fun RealtimeAnimationCanvas(
         val lifecycleOwner = context as ViewModelStoreOwner
 
         val elements = remember {
-            mutableMapOf<Long, MutableMap<Int, VisualDescriptor<*>>>()
+            mutableMapOf<Long, MutableMap<AnimationType, VisualDescriptor<*,*>>>()
         }
 
         val collectedFlow by animationFlow.collectAsStateWithLifecycle(
@@ -348,16 +342,16 @@ fun RealtimeAnimationCanvas(
 
             elements.values.forEach { element ->
 
-                val rotation = element[Animations.ROTATION.ordinal]
-                    ?.getCurrentValue() as Float
-                val shape = (element[Animations.SHAPE.ordinal] as MorphVisualDescriptor)
-                    .getCurrentShape()
-                val color = element[Animations.COLOR.ordinal]
-                    ?.getCurrentValue() as Color
-                val size = element[Animations.SIZE.ordinal]
-                    ?.getCurrentValue() as Size
-                val offset = element[Animations.OFFSET.ordinal]
-                    ?.getCurrentValue() as Offset
+                val rotation = element[AnimationType.ROTATION]
+                    ?.getStaticOrAnimatedValue() as Float
+                val shape = (element[AnimationType.SHAPE] as MorphVisualDescriptor)
+                    .getStaticOrAnimatedShape()
+                val color = element[AnimationType.COLOR]
+                    ?.getStaticOrAnimatedValue() as Color
+                val size = element[AnimationType.SIZE]
+                    ?.getStaticOrAnimatedValue() as Size
+                val offset = element[AnimationType.OFFSET]
+                    ?.getStaticOrAnimatedValue() as Offset
 
                 when (shape) {
                     is Shape.Segment -> {
@@ -413,14 +407,13 @@ fun RealtimeAnimationCanvas(
 }
 
 suspend fun <T,V> animateDescriptor(
-    descriptors: MutableMap<Int, VisualDescriptor<*>>,
-    index: Int,
-    descriptor: VisualDescriptor<T>?,
-    visualUpdate: State<out V>
+    descriptors: MutableMap<AnimationType, VisualDescriptor<*,*>>,
+    descriptor: VisualDescriptor<T,*>?,
+    visualUpdate: State<out V,*>
 ) {
 
     /* same map index, same type */
-    val visualUpdateCast = visualUpdate as State<out T>
+    val visualUpdateCast = visualUpdate as State<out T,*>
 
     when (visualUpdateCast) {
         is Stop -> {
@@ -428,52 +421,51 @@ suspend fun <T,V> animateDescriptor(
         }
 
         is Fixed -> {
-            descriptor?.animateTo(visualUpdateCast.targetValue)
+            descriptor?.animateTo(
+                targetValue = visualUpdateCast.targetValue
+            )
         }
 
         is Animated -> {
             descriptor?.animateTo(
-                visualUpdateCast.animation.targetValue,
-                visualUpdateCast.animation.animationSpec as AnimationSpec<T>
+                durationMillis = visualUpdateCast.animation.durationMillis,
+                targetValue = visualUpdateCast.animation.targetValue,
+                animationSpec = visualUpdateCast.animation.animationSpec as AnimationSpec<T>
             )
         }
 
         is Forget -> {
-            descriptors.remove(index)
+            descriptor?.let {
+                descriptors.remove(it.animationType)
+            }
         }
 
         is Start -> {
-            descriptors[index] = visualUpdateCast.visualDescriptor
+            descriptors[visualUpdateCast.visualDescriptor.animationType] = visualUpdateCast.visualDescriptor
         }
     }
 }
 
 fun animateCanvas(
-    flow: Map<Long, Element<*>>,
-    elements: MutableMap<Long, MutableMap<Int, VisualDescriptor<*>>>,
+    flow: Map<Long, StateHolder<*,*>>,
+    elements: MutableMap<Long, MutableMap<AnimationType, VisualDescriptor<*,*>>>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?
 ) {
     CoroutineScope(Dispatchers.Default).launch {
-        flow.forEach { elementData ->
-            when (elementData.value) {
-                is DelayedElementDecorator<*> -> {
-                    elements[elementData.key]?.let { descriptors ->
-                        elementData.value.getData()
-                            .values.forEachIndexed { index, visualUpdate ->
-                                coroutineScope.launch {
-                                    animateDescriptor(
-                                        descriptors,
-                                        index,
-                                        descriptors[index],
-                                        visualUpdate
-                                    )
-                                }
-                            }
+        flow.forEach { flowStateHolder ->
+            coroutineScope.launch {
+                elements[flowStateHolder.key]?.let { existentDescriptors ->
+                    flowStateHolder.value.getState().forEach {
+                                                        animType, visualUpdate ->
+                        coroutineScope.launch {
+                            animateDescriptor(
+                                existentDescriptors,
+                                existentDescriptors[animType],
+                                visualUpdate
+                            )
+                        }
                     }
-                }
-                is VectorElementDecorator<*> -> {
-
                 }
             }
         }
@@ -487,15 +479,15 @@ fun angleFromUnitVector(x: Float, y: Float): Float {
 }
 
 @OptIn(FlowPreview::class)
-fun Flow<Element<*>>.toBatchedStateFlow(
+fun Flow<StateHolder<*,*>>.toBatchedStateFlow(
     samplingInterval: Long = 50L
-): StateFlow<Map<Long, Element<*>>> {
-    val sharedMap = mutableMapOf<Long, Element<*>>() // Shared map for the latest particles
+): StateFlow<Map<Long, StateHolder<*,*>>> {
+    val sharedMap = mutableMapOf<Long, StateHolder<*,*>>() // Shared map for the latest particles
 
     return this
-        .onEach { particle ->
+        .onEach { stateHolder ->
             // Add the particle to the shared map
-            sharedMap[particle.id] = particle
+            sharedMap[stateHolder.id] = stateHolder
         }
         .sample(samplingInterval) // Emit updates at the specified interval
         .map {

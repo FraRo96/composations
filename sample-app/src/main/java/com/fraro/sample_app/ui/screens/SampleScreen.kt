@@ -1,6 +1,13 @@
 package com.fraro.sample_app.ui.screens
 
+import android.graphics.PointF
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,17 +37,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.plus
+import androidx.core.graphics.times
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.fraro.composable_realtime_animations.data.models.Animation
+import com.fraro.composable_realtime_animations.data.models.AnimationType
+import com.fraro.composable_realtime_animations.data.models.State
+import com.fraro.composable_realtime_animations.data.models.State.Start
+import com.fraro.composable_realtime_animations.data.models.StateHolder
+import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeAnimationCanvas
-import com.fraro.sample_app.data.TrajectoryPoint
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
-import com.fraro.sample_app.ui.viewmodels.SimulationViewModel
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -107,8 +123,6 @@ fun SampleScreen() {
     RealtimeAnimationCanvas(
         animationFlow = viewModel.animationEmitter.getTransformedFlow(),
         samplingInterval = 50,
-        isForward = false,
-        easing = LinearEasing,
         isStartedCallback = {
             viewModel.animationTimer.startTimer(); }
     )
@@ -121,9 +135,10 @@ fun SampleScreen() {
             var offsetY by remember { mutableStateOf(0f) }
             var prevTime = 0L
             var deltaSum = 0
+            var isFirstTime = true
 
-            val _dragTrajectory: MutableList<TrajectoryPoint> = remember { mutableListOf() }
-            var dragTrajectory: List<TrajectoryPoint>
+            val _dragTrajectory: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
+            var dragTrajectory: List<StateHolder<*, *>>
             Box(
                 Modifier
                     .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -146,10 +161,12 @@ fun SampleScreen() {
                                 viewModel.dragTimer.stopTimer()
                                 viewModel.dragTimer.startTimer()
                                 viewModel.animationTimer.stopTimer()
+
                             },
                             onDragEnd = {
                                 println("tempo totale: $deltaSum")
                                 dragTrajectory = _dragTrajectory.toList()
+                                isFirstTime = false
                                 println("traiettoria $dragTrajectory")
                                 identifier++
                                 //isShown = false
@@ -164,13 +181,49 @@ fun SampleScreen() {
                             val currTime = System.currentTimeMillis()
                             val delta = (currTime - prevTime).toInt()
                             deltaSum += delta
-                            _dragTrajectory.add(
-                                TrajectoryPoint(
-                                    identifier,
-                                    Offset(offsetX, offsetY),
-                                    delta
+                            if (isFirstTime) {
+                                isFirstTime = false
+                                _dragTrajectory.add(
+                                    StateHolder<Offset, AnimationVector2D>(
+                                        id = identifier,
+                                        state = Start(
+                                            visualDescriptor = VisualDescriptor(
+                                                currentValue = Offset(offsetX, offsetY),
+                                                animationType = AnimationType.OFFSET,
+                                                animationSpec = tween(
+                                                    durationMillis = delta,
+                                                    easing = LinearEasing
+                                                ),
+                                                animatable = Animatable(
+                                                    initialValue = Offset(offsetX, offsetY),
+                                                    typeConverter = Offset.VectorConverter
+                                                ),
+                                                isAnimated = true,
+                                                durationMillis = delta
+                                            )
+                                        ),
+                                        animationType = AnimationType.OFFSET
+                                    )
                                 )
-                            )
+                            }
+                            else {
+                                _dragTrajectory.add(
+                                    StateHolder<Offset, AnimationVector>(
+                                        id = identifier,
+                                        state = State.Animated(
+                                            animation = Animation(
+                                                animationSpec = tween(
+                                                    durationMillis = delta,
+                                                    easing = LinearEasing
+                                                ),
+                                                targetValue = Offset(offsetX, offsetY),
+                                                durationMillis = delta
+                                            )
+                                        ),
+                                        animationType = AnimationType.OFFSET
+                                    )
+                                )
+                            }
                             prevTime = currTime
                         }
                     }
@@ -187,4 +240,17 @@ fun Timer(timer: SampleViewModel.Timer, color: Color) {
         color = color,
         fontSize = 24.sp)
 }
+
+internal fun Float.toRadians() = this * PI.toFloat() / 180f
+
+internal val PointZero = PointF(0f, 0f)
+
+internal fun radialToCartesian(
+    radius: Float,
+    angleRadians: Float,
+    center: PointF = PointZero
+) = directionVectorPointF(angleRadians) * radius + center
+
+internal fun directionVectorPointF(angleRadians: Float) =
+    PointF(cos(angleRadians), sin(angleRadians))
 

@@ -3,11 +3,10 @@ package com.fraro.sample_app.ui.viewmodels
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fraro.composable_realtime_animations.data.models.AnimationElement
-import com.fraro.composable_realtime_animations.data.models.ScreenPosition
 import com.fraro.composable_realtime_animations.data.models.Shape
+import com.fraro.composable_realtime_animations.data.models.State
+import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
-import com.fraro.sample_app.data.TrajectoryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,70 +29,36 @@ class SampleViewModel: ViewModel() {
 
     inner class AnimationEmitter {
 
-        private val _animationFlow = MutableSharedFlow<AnimationElement>() // Source of particles
+        private val _animationFlow = MutableSharedFlow<StateHolder<*,*>>() // Source of particles
         private val batchedAnimationStateFlow = _animationFlow.toBatchedStateFlow(50L)
 
-        fun getTransformedFlow(): StateFlow<Map<Long, AnimationElement>>
+        fun getTransformedFlow(): StateFlow<Map<Long, StateHolder<*,*>>>
                 = batchedAnimationStateFlow
 
-        fun emitPoint(point: TrajectoryPoint) {
-            CoroutineScope(Dispatchers.Default).launch {
-                _animationFlow.emit(
-                    AnimationElement(
-                        id = point.id,
-                        screenPosition = ScreenPosition(point.offset, 0f),
-                        duration = point.deltaTime.toInt(),
-                        delayFactor = 0F,//delayFactor,
-                        directionUnitVector = null,
-                        shape = Shape.Rectangle(),
-                        color = Color.Red
-                    )
-                )
-            }
-        }
-
-        fun emitTrajectory(trajectory: List<TrajectoryPoint>) {
+        fun emitTrajectory(trajectory: List<StateHolder<*,*>>) {
             viewModelScope.launch {
                 trajectory.forEach { point ->
                     println("nuova posizione: $point")
                     _animationFlow.emit(
-                        AnimationElement(
-                            id = point.id,
-                            screenPosition = ScreenPosition(point.offset, 0f),
-                            duration = point.deltaTime,
-                            delayFactor = 0F,//delayFactor,
-                            directionUnitVector = null,
-                            shape = Shape.Rectangle(),
-                            color = Color.Red
-                        )
+                        point
                     )
-                    delay(point.deltaTime.toLong())
+                    val delay = when (point.getPartialState()) {
+                        is State.Animated -> {
+                            (point.getPartialState() as State.Animated).animation.durationMillis
+                        }
+                        is State.Start -> {
+                            (point.getPartialState() as State.Start).visualDescriptor.durationMillis
+                        }
+                        else -> {
+                            0
+                        }
+                    }
+                    delay(delay.toLong())
                 }
             }
         }
-
-        @OptIn(ExperimentalCoroutinesApi::class)
-        fun emitMultipleTrajectories(
-            trajectories: Map<Long, List<TrajectoryPoint>>) {
-            CoroutineScope(Dispatchers.Default).launch {
-                trajectories.entries.asFlow()
-                    .flatMapMerge { (key, points) ->
-                        points.asFlow()
-                            .map { point ->
-                                AnimationElement(
-                                    id = point.id,
-                                    screenPosition = ScreenPosition(point.offset, 0f),
-                                    duration = point.deltaTime.toInt(),
-                                    delayFactor = 0F,//delayFactor,
-                                    directionUnitVector = null,
-                                    shape = Shape.Ellipse(),
-                                    color = Color.Red
-                                )
-                            }
-                    }
-            }
-        }
     }
+
     inner class Timer {
         private val _timer = MutableStateFlow(0L)
         val timer = _timer.asStateFlow()

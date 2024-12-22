@@ -1,54 +1,6 @@
 package com.fraro.composable_realtime_animations.data.models
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
-
-interface Element<T> {
-    val id: Long
-    fun getData(): MutableMap<Int, State<T>>
-    val initialValue: T
-}
-
-interface DelayedElement<T> : Element<T> {
-    val duration: Long
-    val delayFactor: Float
-    val isConstant: Boolean
-}
-
-interface VectorElement<T> : Element<T> {
-    val directionVector: Pair<Float, Float>
-}
-
-class DelayedElementDecorator<T>(
-    override val id: Long,
-    override val duration: Long,
-    override val delayFactor: Float,
-    override val isConstant: Boolean,
-    override val initialValue: T,
-    private val wrappedElement: Element<T>
-) : DelayedElement<T> {
-
-    override fun getData(): MutableMap<Int, State<T>> {
-        return wrappedElement.getData()
-    }
-}
-
-class VectorElementDecorator<T>(
-    override val id: Long,
-    override val directionVector: Pair<Float, Float>,
-    override val initialValue: T,
-    private val wrappedElement: Element<T>
-) : VectorElement<T> {
-
-    override fun getData(): MutableMap<Int, State<T>> {
-        return wrappedElement.getData()
-    }
-}
-
-data class ScreenPosition(
-    val offset: Offset,
-    val heading: Float
-)
 
 sealed class Shape(val description: String) {
     data object Unspecified : Shape("Unspecified")

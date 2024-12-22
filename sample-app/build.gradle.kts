@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.gradleLicensesPlugins)
-    //alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.compose.compiler)
 
     id("com.google.android.gms.oss-licenses-plugin")
 }
