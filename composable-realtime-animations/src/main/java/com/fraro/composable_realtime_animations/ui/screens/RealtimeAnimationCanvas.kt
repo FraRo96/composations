@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.DefaultRotation
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -48,6 +49,10 @@ import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.*
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
+import com.fraro.composable_realtime_animations.data.models.colorDefault
+import com.fraro.composable_realtime_animations.data.models.offsetDefault
+import com.fraro.composable_realtime_animations.data.models.rotationDefault
+import com.fraro.composable_realtime_animations.data.models.shapeDefault
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -96,7 +101,6 @@ fun RealtimeAnimationCanvas(
     else {
         val coroutineScope = rememberCoroutineScope()
         val context = LocalContext.current
-        val lifecycleOwner = context as ViewModelStoreOwner
 
         val elements = remember {
             mutableMapOf<Long, MutableMap<AnimationType, VisualDescriptor<*,*>>>()
@@ -107,75 +111,14 @@ fun RealtimeAnimationCanvas(
             minActiveState = Lifecycle.State.RESUMED
         )
 
-        //LaunchedEffect(key1 = collectedFlow) {
-        animateCanvas(
-            collectedFlow,
-            elements,
-            coroutineScope,
-            isStartedCallback
-        )
-        //}
-
-        val shapeA = remember {
-            RoundedPolygon(
-                12,
-                rounding = CornerRounding(0.2f)
+        LaunchedEffect(key1 = collectedFlow) {
+            animateCanvas(
+                collectedFlow,
+                elements,
+                coroutineScope,
+                isStartedCallback
             )
         }
-        val shapeB = remember {
-            RoundedPolygon.star(
-                12,
-                rounding = CornerRounding(0.2f)
-            )
-        }
-        val morph = remember {
-            Morph(shapeA, shapeB)
-        }
-        val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
-        val animatedProgress = infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                tween(2000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "animatedMorphProgress"
-        )
-
-        LaunchedEffect(animatedProgress) {
-            snackbarHostState.showSnackbar(
-                "Sampling interval not valid.",
-                "Change",
-                duration = SnackbarDuration.Long
-            )
-        }
-
-        val animatedRotation = infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                tween(6000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "animatedMorphProgress"
-        )
-
-        /*Box {
-            Canvas(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                collectedFlow?.let {
-                    it.forEach { (key, value) ->
-                        println("positions ${value.screenPosition.offset}")
-                        drawCircle(
-                            color = Color.Red.copy(alpha = 0.8f),
-                            center = value.screenPosition.offset,
-                            radius = 20.dp.toPx()
-                        )
-                    }
-                }
-            }
-        }*/
 
         Canvas(
             modifier = Modifier.fillMaxSize()
@@ -342,16 +285,16 @@ fun RealtimeAnimationCanvas(
 
             elements.values.forEach { element ->
 
-                val rotation = element[AnimationType.ROTATION]
-                    ?.getStaticOrAnimatedValue() as Float
-                val shape = (element[AnimationType.SHAPE] as MorphVisualDescriptor)
-                    .getStaticOrAnimatedShape()
-                val color = element[AnimationType.COLOR]
-                    ?.getStaticOrAnimatedValue() as Color
-                val size = element[AnimationType.SIZE]
-                    ?.getStaticOrAnimatedValue() as Size
-                val offset = element[AnimationType.OFFSET]
-                    ?.getStaticOrAnimatedValue() as Offset
+                val rotation = (element[AnimationType.ROTATION]
+                    ?.getStaticOrAnimatedValue() ?: rotationDefault) as Float
+                val shape = ((element[AnimationType.SHAPE] as? MorphVisualDescriptor)
+                    ?.getStaticOrAnimatedShape() ?: shapeDefault)
+                val color = (element[AnimationType.COLOR]
+                    ?.getStaticOrAnimatedValue() ?: colorDefault) as Color
+                val size = (element[AnimationType.SIZE]
+                    ?.getStaticOrAnimatedValue() ?: shapeDefault.size) as Size
+                val offset = (element[AnimationType.OFFSET]
+                    ?.getStaticOrAnimatedValue() ?: offsetDefault) as Offset
 
                 when (shape) {
                     is Shape.Segment -> {
@@ -409,7 +352,8 @@ fun RealtimeAnimationCanvas(
 suspend fun <T,V> animateDescriptor(
     descriptors: MutableMap<AnimationType, VisualDescriptor<*,*>>,
     descriptor: VisualDescriptor<T,*>?,
-    visualUpdate: State<out V,*>
+    visualUpdate: State<out V,*>,
+    isStartedCallback: (() -> Unit)?
 ) {
 
     /* same map index, same type */
@@ -442,6 +386,7 @@ suspend fun <T,V> animateDescriptor(
 
         is Start -> {
             descriptors[visualUpdateCast.visualDescriptor.animationType] = visualUpdateCast.visualDescriptor
+            isStartedCallback?.invoke()
         }
     }
 }
@@ -454,7 +399,7 @@ fun animateCanvas(
 ) {
     CoroutineScope(Dispatchers.Default).launch {
         flow.forEach { flowStateHolder ->
-            coroutineScope.launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 elements[flowStateHolder.key]?.let { existentDescriptors ->
                     flowStateHolder.value.getState().forEach {
                                                         animType, visualUpdate ->
@@ -462,20 +407,22 @@ fun animateCanvas(
                             animateDescriptor(
                                 existentDescriptors,
                                 existentDescriptors[animType],
-                                visualUpdate
+                                visualUpdate,
+                                isStartedCallback
                             )
                         }
                     }
                 }
+                val state = flowStateHolder.value.getPartialState()
+                if (state is Start<*,*>) {
+                    isStartedCallback?.invoke()
+                    elements[flowStateHolder.key] = mutableMapOf(
+                        state.visualDescriptor.animationType to state.visualDescriptor
+                    )
+                }
             }
         }
     }
-}
-
-fun angleFromUnitVector(x: Float, y: Float): Float {
-    val angleRadians = atan2(y, x)
-    val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
-    return if (angleDegrees < 0) angleDegrees + 360 else angleDegrees
 }
 
 @OptIn(FlowPreview::class)
@@ -487,7 +434,10 @@ fun Flow<StateHolder<*,*>>.toBatchedStateFlow(
     return this
         .onEach { stateHolder ->
             // Add the particle to the shared map
-            sharedMap[stateHolder.id] = stateHolder
+            val state = sharedMap[stateHolder.id]?.getPartialState()
+            if (state !is Start) {
+                sharedMap[stateHolder.id] = stateHolder
+            }
         }
         .sample(samplingInterval) // Emit updates at the specified interval
         .map {

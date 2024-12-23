@@ -90,7 +90,10 @@ open class VisualDescriptor<T,V: AnimationVector>(
         durationMillis: Int
     ) {
         animatable.stop()
-
+        animatable = Animatable(
+            initialValue = getStaticOrAnimatedValue(),
+            typeConverter = animatable.typeConverter
+        )
         this.animationSpec = animationSpec
         this.durationMillis = durationMillis
         animatable.animateTo(
