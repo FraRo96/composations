@@ -2,12 +2,7 @@ package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -292,7 +287,7 @@ fun RealtimeAnimationCanvas(
                 val color = (element[AnimationType.COLOR]
                     ?.getStaticOrAnimatedValue() ?: colorDefault) as Color
                 val size = (element[AnimationType.SIZE]
-                    ?.getStaticOrAnimatedValue() ?: shapeDefault.size) as Size
+                    ?.getStaticOrAnimatedValue() ?: shape.size) as Size
                 val offset = (element[AnimationType.OFFSET]
                     ?.getStaticOrAnimatedValue() ?: offsetDefault) as Offset
 
@@ -416,9 +411,18 @@ fun animateCanvas(
                 val state = flowStateHolder.value.getPartialState()
                 if (state is Start<*,*>) {
                     isStartedCallback?.invoke()
-                    elements[flowStateHolder.key] = mutableMapOf(
+                    val map = mutableMapOf(
                         state.visualDescriptor.animationType to state.visualDescriptor
                     )
+                    val states = flowStateHolder.value.getState()
+                    states.forEach { st ->
+                        val otherState = st.value
+                        if (otherState is Start<*,*>) {
+                            map[otherState.visualDescriptor.animationType] =
+                                otherState.visualDescriptor
+                        }
+                    }
+                    elements[flowStateHolder.key] = map
                 }
             }
         }

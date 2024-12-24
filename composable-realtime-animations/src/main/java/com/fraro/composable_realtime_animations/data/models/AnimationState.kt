@@ -19,17 +19,15 @@ class StateHolder<T,V: AnimationVector>(
     val id: Long,
     private val state: State<T,V>,
     val animationType: AnimationType,
-    private val wrappedStateHolders: List<StateHolder<*,*>>? = null,
+    val wrappedStateHolders: List<StateHolder<*,*>>? = null,
 ) {
 
     fun getPartialState(): State<*,*> = state
 
     fun getState(): Map<AnimationType, State<*,*>> {
         val stateMap = mutableMapOf<AnimationType, State<*,*>>(animationType to state)
-        wrappedStateHolders?.forEach { holder ->
-            CoroutineScope(Dispatchers.Default).launch {
-               stateMap[holder.animationType] = holder.state
-            }
+        wrappedStateHolders?.forEach { wrapped ->
+           stateMap[wrapped.animationType] = wrapped.state
         }
         return stateMap.toMap()
     }
@@ -110,9 +108,8 @@ class MorphVisualDescriptor (
     animatable: Animatable<Float, AnimationVector1D>,
     isAnimated: Boolean,
     animationSpec: AnimationSpec<Float>,
-    val shape1: Shape,
-    val shape2: Shape,
-    val morph: Morph
+    var shape1: Shape,
+    var shape2: Shape? = null
 ) : VisualDescriptor<Float, AnimationVector1D>(
                         currentValue,
                         durationMillis,
@@ -123,11 +120,30 @@ class MorphVisualDescriptor (
                         //vectorConverter
 ) {
 
+    val morph: Morph?
+        get() {
+            return setMorph(shape1, shape2)
+        }
+
+    fun setMorph(shape1: Shape, shape2: Shape?): Morph? {
+        val polygon1 = (shape1 as? Shape.CustomPolygonalShape)?.roundedPolygon
+        val polygon2 = (shape2 as? Shape.CustomPolygonalShape)?.roundedPolygon
+        return polygon1?.let {
+            polygon2?.let {
+                this.shape1 = shape1
+                this.shape2 = shape2
+                Morph(polygon1, polygon2)
+            }
+        }
+    }
+
     fun getStaticOrAnimatedShape(): Shape =
         if (isAnimated)
-            Shape.CustomPolygonalShape(
-                path = morph.toPath(progress = animatable.value).asComposePath(),
-                size = Size.RescaleFactor(1F)
-            )
+            morph?.let {
+                Shape.CustomPolygonalShape(
+                    path = it.toPath(progress = animatable.value).asComposePath(),
+                    size = Size.RescaleFactor(1F)
+                )
+            } ?: shape1
         else shape1
 }

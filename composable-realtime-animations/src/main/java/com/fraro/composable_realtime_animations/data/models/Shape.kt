@@ -1,20 +1,25 @@
 package com.fraro.composable_realtime_animations.data.models
 
 import androidx.compose.ui.graphics.Path
+import androidx.graphics.shapes.RoundedPolygon
 
-sealed class Shape(val description: String) {
+sealed class Shape(val description: String, open val size: Size = Size.RescaleFactor(1F)) {
     data object Unspecified : Shape("Unspecified")
-    data class Segment(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(10F, 1F)) : Shape("Segment")
-    data class Rectangle(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(10F, 10F)) : Shape("Rectangle")
+    data class Segment(override val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(10F, 1F))
+        : Shape("Segment")
+    data class Rectangle(override val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(10F, 10F))
+        : Shape("Rectangle")
     data class RegularPolygon(
         val nVertices: Int,
-        val size: Size.SingleAxisMeasure = Size.SingleAxisMeasure(10F)
+        override val size: Size.SingleAxisMeasure = Size.SingleAxisMeasure(10F)
     ) : Shape("Regular polygon")
 
-    data class Ellipse(val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(100F, 100F)) : Shape("Ellipse")
+    data class Ellipse(override val size: Size.DoubleAxisMeasure = Size.DoubleAxisMeasure(100F, 100F))
+        : Shape("Ellipse")
     data class CustomPolygonalShape(
+        val roundedPolygon: RoundedPolygon? = null,
         val path: Path,
-        val size: Size.RescaleFactor = Size.RescaleFactor(1F)
+        override val size: Size.RescaleFactor = Size.RescaleFactor(100F)
     ) : Shape("Custom path")
 
     companion object {

@@ -38,7 +38,7 @@ class SampleViewModel: ViewModel() {
         fun emitTrajectory(trajectory: List<StateHolder<*,*>>) {
             viewModelScope.launch {
                 trajectory.forEach { point ->
-                    println("nuova posizione: $point")
+                    println("nuova posizione: ${point.getState().entries}")
                     _animationFlow.emit(
                         point
                     )

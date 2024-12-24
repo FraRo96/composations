@@ -6,7 +6,9 @@ import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -41,12 +43,15 @@ import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.Animation
 import com.fraro.composable_realtime_animations.data.models.AnimationType
+import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
+import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.Start
 import com.fraro.composable_realtime_animations.data.models.StateHolder
@@ -64,6 +69,19 @@ fun SampleScreen() {
     val context = LocalContext.current
     val lifecycleOwner = context as ViewModelStoreOwner
     val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
+
+    val shapeA = remember {
+        RoundedPolygon(
+            12,
+            rounding = CornerRounding(0.2f)
+        )
+    }
+    val shapeB = remember {
+        RoundedPolygon.star(
+            12,
+            rounding = CornerRounding(0.2f)
+        )
+    }
 
     var identifier = remember { 0L }
     val rounding = remember {
@@ -183,27 +201,62 @@ fun SampleScreen() {
                             deltaSum += delta
                             if (isFirstTime) {
                                 isFirstTime = false
-                                _dragTrajectory.add(
-                                    StateHolder<Offset, AnimationVector2D>(
-                                        id = identifier,
-                                        state = Start(
-                                            visualDescriptor = VisualDescriptor(
-                                                currentValue = Offset(offsetX, offsetY),
-                                                animationType = AnimationType.OFFSET,
-                                                animationSpec = tween(
-                                                    durationMillis = delta,
-                                                    easing = LinearEasing
-                                                ),
-                                                animatable = Animatable(
-                                                    initialValue = Offset(offsetX, offsetY),
-                                                    typeConverter = Offset.VectorConverter
-                                                ),
-                                                isAnimated = true,
-                                                durationMillis = delta
+                                val shapeStateHolder = StateHolder<Float, AnimationVector1D>(
+                                    id = identifier,
+                                    animationType = AnimationType.SHAPE,
+                                    state = Start(
+                                        visualDescriptor = MorphVisualDescriptor(
+                                            currentValue = 0F,
+                                            animationType = AnimationType.SHAPE,
+                                            /*animationSpec = infiniteRepeatable(
+                                                tween(2000, easing = LinearEasing),
+                                                repeatMode = RepeatMode.Reverse,
+                                            ),*/
+                                            animationSpec = tween(
+                                                durationMillis = 100000,
+                                                easing = LinearEasing
+                                            ),
+                                            durationMillis = 2000,
+                                            animatable = Animatable(
+                                                initialValue = 0F,
+                                                typeConverter = Float.VectorConverter
+                                            ),
+                                            isAnimated = true,
+                                            shape1 = Shape.CustomPolygonalShape(
+                                                roundedPolygon = shapeA,
+                                                path = shapeA.toPath().asComposePath()
+                                            ),
+                                            shape2 = Shape.CustomPolygonalShape(
+                                                roundedPolygon = shapeB,
+                                                path = shapeB.toPath().asComposePath()
                                             )
                                         ),
-                                        animationType = AnimationType.OFFSET
                                     )
+                                )
+
+                                    val offsetStateHolder = StateHolder<Offset, AnimationVector2D>(
+                                    id = identifier,
+                                    state = Start(
+                                        visualDescriptor = VisualDescriptor(
+                                            currentValue = Offset(offsetX, offsetY),
+                                            animationType = AnimationType.OFFSET,
+                                            animationSpec = tween(
+                                                durationMillis = delta,
+                                                easing = LinearEasing
+                                            ),
+                                            animatable = Animatable(
+                                                initialValue = Offset(offsetX, offsetY),
+                                                typeConverter = Offset.VectorConverter
+                                            ),
+                                            isAnimated = true,
+                                            durationMillis = delta
+                                        )
+                                    ),
+                                    animationType = AnimationType.OFFSET,
+                                    wrappedStateHolders = listOf(shapeStateHolder)
+                                )
+                                _dragTrajectory.add(
+                                    offsetStateHolder
                                 )
                             }
                             else {
