@@ -213,10 +213,10 @@ fun SampleScreen() {
                                                 repeatMode = RepeatMode.Reverse,
                                             ),*/
                                             animationSpec = tween(
-                                                durationMillis = 100000,
+                                                durationMillis = 10000,
                                                 easing = LinearEasing
                                             ),
-                                            durationMillis = 2000,
+                                            durationMillis = 10000,
                                             animatable = Animatable(
                                                 initialValue = 0F,
                                                 typeConverter = Float.VectorConverter
@@ -229,7 +229,8 @@ fun SampleScreen() {
                                             shape2 = Shape.CustomPolygonalShape(
                                                 roundedPolygon = shapeB,
                                                 path = shapeB.toPath().asComposePath()
-                                            )
+                                            ),
+                                            targetValue = 1F
                                         ),
                                     )
                                 )

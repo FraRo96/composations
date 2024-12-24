@@ -38,8 +38,8 @@ sealed interface State<T,V: AnimationVector> {
         val visualDescriptor: VisualDescriptor<T,V>) : State<T,V>
     data class Animated<T> (val animation: Animation<T>) : State<T, AnimationVector>
     data class Fixed<T> (val targetValue: T) : State<T, AnimationVector>
-    data object Stop : State<Any, AnimationVector>
-    data object Forget: State<Any, AnimationVector>
+    object Stop : State<Any, AnimationVector>
+    object Forget: State<Any, AnimationVector>
 }
 
 class Animation<T>(
@@ -51,11 +51,12 @@ class Animation<T>(
 
 open class VisualDescriptor<T,V: AnimationVector>(
     var currentValue: T,
+    var targetValue: T? = null,
     var durationMillis: Int,
     val animationType: AnimationType,
     var animatable: Animatable<T, V>,
     var animationSpec: AnimationSpec<T>,
-    var isAnimated: Boolean,
+    var isAnimated: Boolean
 ) {
 
     fun getStaticOrAnimatedValue(): T = if (isAnimated) animatable.value else currentValue
@@ -82,6 +83,17 @@ open class VisualDescriptor<T,V: AnimationVector>(
         )
     }
 
+    suspend fun animateTo() {
+        if (isAnimated) {
+            targetValue?.let {
+                animatable.animateTo(
+                    targetValue = it,
+                    animationSpec = animationSpec,
+                )
+            }
+        }
+    }
+
     suspend fun animateTo(
         targetValue: T,
         animationSpec: AnimationSpec<T>,
@@ -103,6 +115,7 @@ open class VisualDescriptor<T,V: AnimationVector>(
 
 class MorphVisualDescriptor (
     currentValue: Float,
+    targetValue: Float,
     durationMillis: Int,
     animationType: AnimationType,
     animatable: Animatable<Float, AnimationVector1D>,
@@ -112,6 +125,7 @@ class MorphVisualDescriptor (
     var shape2: Shape? = null
 ) : VisualDescriptor<Float, AnimationVector1D>(
                         currentValue,
+                        targetValue,
                         durationMillis,
                         animationType,
                         animatable,
@@ -120,10 +134,7 @@ class MorphVisualDescriptor (
                         //vectorConverter
 ) {
 
-    val morph: Morph?
-        get() {
-            return setMorph(shape1, shape2)
-        }
+    val morph: Morph? = setMorph(shape1, shape2)
 
     fun setMorph(shape1: Shape, shape2: Shape?): Morph? {
         val polygon1 = (shape1 as? Shape.CustomPolygonalShape)?.roundedPolygon
@@ -142,7 +153,7 @@ class MorphVisualDescriptor (
             morph?.let {
                 Shape.CustomPolygonalShape(
                     path = it.toPath(progress = animatable.value).asComposePath(),
-                    size = Size.RescaleFactor(1F)
+                    //size = Size.RescaleFactor(100F)
                 )
             } ?: shape1
         else shape1

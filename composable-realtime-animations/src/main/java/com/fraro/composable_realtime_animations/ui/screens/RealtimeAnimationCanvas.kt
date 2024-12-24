@@ -2,6 +2,7 @@ package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
@@ -284,6 +285,7 @@ fun RealtimeAnimationCanvas(
                     ?.getStaticOrAnimatedValue() ?: rotationDefault) as Float
                 val shape = ((element[AnimationType.SHAPE] as? MorphVisualDescriptor)
                     ?.getStaticOrAnimatedShape() ?: shapeDefault)
+                println("forma e progresso $shape ${(element[AnimationType.SHAPE] as? MorphVisualDescriptor)?.animatable?.value}")
                 val color = (element[AnimationType.COLOR]
                     ?.getStaticOrAnimatedValue() ?: colorDefault) as Color
                 val size = (element[AnimationType.SIZE]
@@ -411,15 +413,17 @@ fun animateCanvas(
                 val state = flowStateHolder.value.getPartialState()
                 if (state is Start<*,*>) {
                     isStartedCallback?.invoke()
-                    val map = mutableMapOf(
-                        state.visualDescriptor.animationType to state.visualDescriptor
-                    )
+                    val map = mutableMapOf<AnimationType, VisualDescriptor<*, *>>()
+
                     val states = flowStateHolder.value.getState()
                     states.forEach { st ->
                         val otherState = st.value
                         if (otherState is Start<*,*>) {
                             map[otherState.visualDescriptor.animationType] =
                                 otherState.visualDescriptor
+                            coroutineScope.launch {
+                                otherState.visualDescriptor.animateTo()
+                            }
                         }
                     }
                     elements[flowStateHolder.key] = map
