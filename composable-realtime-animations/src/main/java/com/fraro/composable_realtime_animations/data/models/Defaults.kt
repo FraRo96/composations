@@ -7,4 +7,4 @@ import com.fraro.composable_realtime_animations.data.models.Shape.Ellipse
 const val rotationDefault = 0F
 val colorDefault = Color.Blue
 val shapeDefault = Ellipse()
-val offsetDefault = Offset(0F,0F)
+val offsetDefault = Offset(100F,100F)

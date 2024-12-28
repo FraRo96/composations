@@ -30,7 +30,7 @@ class SampleViewModel: ViewModel() {
     inner class AnimationEmitter {
 
         private val _animationFlow = MutableSharedFlow<StateHolder<*,*>>() // Source of particles
-        private val batchedAnimationStateFlow = _animationFlow.toBatchedStateFlow(50L)
+        private val batchedAnimationStateFlow = _animationFlow.toBatchedStateFlow(1000L)
 
         fun getTransformedFlow(): StateFlow<Map<Long, StateHolder<*,*>>>
                 = batchedAnimationStateFlow

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -140,12 +141,16 @@ fun SampleScreen() {
 
     RealtimeAnimationCanvas(
         animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-        samplingInterval = 50,
+        samplingInterval = 1000,
         isStartedCallback = {
             viewModel.animationTimer.startTimer(); }
     )
 
     var isShown by remember { mutableStateOf(true) }
+
+    var prevOffset by remember {
+        mutableStateOf(Offset(0f,0f))
+    }
 
     if (isShown) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -235,18 +240,24 @@ fun SampleScreen() {
                                     )
                                 )
 
-                                    val offsetStateHolder = StateHolder<Offset, AnimationVector2D>(
+                                val offsetStateHolder = StateHolder<Offset, AnimationVector2D>(
                                     id = identifier,
                                     state = Start(
                                         visualDescriptor = VisualDescriptor(
-                                            currentValue = Offset(offsetX, offsetY),
+                                            currentValue = Offset(
+                                                offsetX + (offsetX - prevOffset.x),
+                                                offsetY + (offsetY - prevOffset.y)
+                                            ),
                                             animationType = AnimationType.OFFSET,
                                             animationSpec = tween(
                                                 durationMillis = delta,
                                                 easing = LinearEasing
                                             ),
                                             animatable = Animatable(
-                                                initialValue = Offset(offsetX, offsetY),
+                                                initialValue = Offset(
+                                                    offsetX + (offsetX - prevOffset.x),
+                                                    offsetY + (offsetY - prevOffset.y)
+                                                ),
                                                 typeConverter = Offset.VectorConverter
                                             ),
                                             isAnimated = true,
@@ -254,8 +265,9 @@ fun SampleScreen() {
                                         )
                                     ),
                                     animationType = AnimationType.OFFSET,
-                                    wrappedStateHolders = listOf(shapeStateHolder)
+                                    //wrappedStateHolders = listOf(shapeStateHolder)
                                 )
+
                                 _dragTrajectory.add(
                                     offsetStateHolder
                                 )
@@ -270,7 +282,10 @@ fun SampleScreen() {
                                                     durationMillis = delta,
                                                     easing = LinearEasing
                                                 ),
-                                                targetValue = Offset(offsetX, offsetY),
+                                                targetValue = Offset(
+                                                    offsetX + (offsetX - prevOffset.x),
+                                                    offsetY + (offsetY - prevOffset.y)
+                                                ),
                                                 durationMillis = delta
                                             )
                                         ),
@@ -278,10 +293,13 @@ fun SampleScreen() {
                                     )
                                 )
                             }
+                            prevOffset = Offset(offsetX, offsetY)
                             prevTime = currTime
                         }
                     }
-            )
+            ) {
+                SideEffect { println("sono il box") }
+            }
         }
     }
 }
