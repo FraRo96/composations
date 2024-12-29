@@ -6,9 +6,7 @@ import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -19,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -36,7 +35,9 @@ import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +69,8 @@ import kotlin.math.sin
 @Composable
 fun SampleScreen() {
     val context = LocalContext.current
+    val localConfig = LocalConfiguration.current
+    val density = LocalDensity.current
     val lifecycleOwner = context as ViewModelStoreOwner
     val viewModel: SampleViewModel = ViewModelProvider(lifecycleOwner)[SampleViewModel::class.java]
 
@@ -141,9 +144,11 @@ fun SampleScreen() {
 
     RealtimeAnimationCanvas(
         animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-        samplingInterval = 1000,
+        samplingInterval = 100,
         isStartedCallback = {
-            viewModel.animationTimer.startTimer(); }
+            viewModel.animationTimer.startTimer(); },
+        isStoppedCallback = {
+            viewModel.animationTimer.stopTimer(); }
     )
 
     var isShown by remember { mutableStateOf(true) }
@@ -153,6 +158,83 @@ fun SampleScreen() {
     }
 
     if (isShown) {
+        val traj: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
+        val anim = remember { Animatable(
+            initialValue = Offset(
+                0f,
+                0f
+            ),
+            typeConverter = Offset.VectorConverter) }
+
+        val offsetStateHolder = remember {
+            StateHolder<Offset, AnimationVector2D>(
+                id = identifier,
+                state = Start(
+                    visualDescriptor = VisualDescriptor(
+                        currentValue = Offset(
+                            0f,
+                            0f
+                        ),
+                        animationType = AnimationType.OFFSET,
+                        animationSpec = tween(
+                            durationMillis = 1000,
+                            easing = LinearEasing
+                        ),
+                        animatable = anim,
+                        isAnimated = true,
+                        durationMillis = 1000
+                    )
+                ),
+                animationType = AnimationType.OFFSET,
+                //wrappedStateHolders = listOf(shapeStateHolder)
+            )
+        }
+        val screenHeight = remember {
+            with(density) { localConfig.screenHeightDp.dp.toPx() }
+        }
+        val screenWidth = remember {
+            with(density) { localConfig.screenWidthDp.dp.toPx() }
+        }
+
+        traj.add(offsetStateHolder)
+
+        calculateOffsets(
+            maxScreenHeight = screenHeight,
+            maxScreenWidth = screenWidth,
+            numOffsets = 20
+        ).forEach { currOffset ->
+            traj.add(
+                StateHolder<Offset, AnimationVector>(
+                    id = identifier,
+                    state = State.Animated(
+                        animation = Animation(
+                            animationSpec = tween(
+                                durationMillis = 1000,
+                                easing = LinearEasing
+                            ),
+                            targetValue = currOffset,
+                            durationMillis = 1000
+                        )
+                    ),
+                    animationType = AnimationType.OFFSET
+                )
+            )
+        }
+        traj.add(
+            StateHolder(
+                id = identifier,
+                state = State.Pause,
+                animationType = AnimationType.OFFSET,
+                //wrappedStateHolders = TODO()
+            )
+        )
+
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(onClick = {
+                viewModel.animationEmitter.emitTrajectory(traj)
+            } ) { Text("start") }
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
             var offsetX by remember { mutableStateOf(0f) }
             var offsetY by remember { mutableStateOf(0f) }
@@ -325,4 +407,14 @@ internal fun radialToCartesian(
 
 internal fun directionVectorPointF(angleRadians: Float) =
     PointF(cos(angleRadians), sin(angleRadians))
+
+fun calculateOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: Int): List<Offset> {
+    val offsets = mutableListOf<Offset>()
+    for (i in 1..numOffsets) {
+        val xi: Float = (maxScreenWidth / numOffsets) * i
+        val yi: Float = (maxScreenHeight / numOffsets) * i
+        offsets.add(Offset(xi, yi))
+    }
+    return offsets
+}
 

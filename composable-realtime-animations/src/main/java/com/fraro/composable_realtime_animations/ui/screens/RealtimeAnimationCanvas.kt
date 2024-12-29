@@ -58,7 +58,8 @@ val randomColor
 fun RealtimeAnimationCanvas(
     animationFlow: StateFlow<Map<Long, StateHolder<*,*>>>,
     samplingInterval: Int = 100,
-    isStartedCallback: (() -> Unit)? = null
+    isStartedCallback: (() -> Unit)? = null,
+    isStoppedCallback: (() -> Unit)? = null
 ) {
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -101,7 +102,8 @@ fun RealtimeAnimationCanvas(
                 collectedFlow,
                 elements,
                 coroutineScope,
-                isStartedCallback
+                isStartedCallback,
+                isStoppedCallback
             )
         //}
         var offset by remember { mutableStateOf(Offset(0f,0f)) }
@@ -152,14 +154,15 @@ suspend fun <T,V> animateDescriptor(
     descriptors: MutableMap<AnimationType, VisualDescriptor<*,*>>,
     descriptor: VisualDescriptor<T,*>?,
     visualUpdate: State<out V,*>,
-    isStartedCallback: (() -> Unit)?
+    isStartedCallback: (() -> Unit)?,
+    isStoppedCallback: (() -> Unit)?,
 ) {
 
     /* same map index, same type */
     val visualUpdateCast = visualUpdate as State<out T,*>
 
     when (visualUpdateCast) {
-        is Stop -> {
+        is Pause -> {
             descriptor?.stopAnimation()
         }
 
@@ -177,10 +180,11 @@ suspend fun <T,V> animateDescriptor(
             )
         }
 
-        is Forget -> {
+        is Stop -> {
             descriptor?.let {
                 descriptors.remove(it.animationType)
             }
+            isStoppedCallback?.invoke()
         }
 
         is Start -> {
@@ -194,42 +198,42 @@ fun animateCanvas(
     flow: Map<Long, StateHolder<*,*>>,
     elements: MutableMap<Long, MutableMap<AnimationType, VisualDescriptor<*,*>>>,
     coroutineScope: CoroutineScope,
-    isStartedCallback: (() -> Unit)?
+    isStartedCallback: (() -> Unit)?,
+    isStoppedCallback: (() -> Unit)?
 ) {
-    CoroutineScope(Dispatchers.Default).launch {
-        flow.forEach { flowStateHolder ->
-            CoroutineScope(Dispatchers.Default).launch {
-                elements[flowStateHolder.key]?.let { existentDescriptors ->
-                    flowStateHolder.value.getState().forEach {
-                                                        animType, visualUpdate ->
-                        coroutineScope.launch {
-                            animateDescriptor(
-                                existentDescriptors,
-                                existentDescriptors[animType],
-                                visualUpdate,
-                                isStartedCallback
-                            )
-                        }
+    flow.forEach { flowStateHolder ->
+        coroutineScope.launch {
+            elements[flowStateHolder.key]?.let { existentDescriptors ->
+                flowStateHolder.value.getState().forEach {
+                                                    animType, visualUpdate ->
+                    coroutineScope.launch {
+                        animateDescriptor(
+                            existentDescriptors,
+                            existentDescriptors[animType],
+                            visualUpdate,
+                            isStartedCallback,
+                            isStoppedCallback
+                        )
                     }
                 }
-                val state = flowStateHolder.value.getPartialState()
-                if (state is Start<*,*>) {
-                    isStartedCallback?.invoke()
-                    val map = mutableMapOf<AnimationType, VisualDescriptor<*, *>>()
+            }
+            val state = flowStateHolder.value.getPartialState()
+            if (state is Start<*,*>) {
+                isStartedCallback?.invoke()
+                val map = mutableMapOf<AnimationType, VisualDescriptor<*, *>>()
 
-                    val states = flowStateHolder.value.getState()
-                    states.forEach { st ->
-                        val otherState = st.value
-                        if (otherState is Start<*,*>) {
-                            map[otherState.visualDescriptor.animationType] =
-                                otherState.visualDescriptor
-                            coroutineScope.launch {
-                                otherState.visualDescriptor.animateTo()
-                            }
+                val states = flowStateHolder.value.getState()
+                states.forEach { st ->
+                    val otherState = st.value
+                    if (otherState is Start<*,*>) {
+                        map[otherState.visualDescriptor.animationType] =
+                            otherState.visualDescriptor
+                        coroutineScope.launch {
+                            otherState.visualDescriptor.animateTo()
                         }
                     }
-                    elements[flowStateHolder.key] = map
                 }
+                elements[flowStateHolder.key] = map
             }
         }
     }
@@ -254,7 +258,7 @@ fun Flow<StateHolder<*,*>>.toBatchedStateFlow(
             // Create a snapshot of the map to emit
             val snapshot = sharedMap.toMap()
             sharedMap.clear()
-
+            println("emissione")
             snapshot
         }
         .distinctUntilChanged()

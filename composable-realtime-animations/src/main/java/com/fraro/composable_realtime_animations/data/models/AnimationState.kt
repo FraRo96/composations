@@ -7,9 +7,6 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.ui.graphics.asComposePath
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.toPath
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 enum class AnimationType {
     ROTATION, OFFSET, COLOR, SHAPE, SIZE
@@ -22,7 +19,7 @@ class StateHolder<T,V: AnimationVector>(
     val wrappedStateHolders: List<StateHolder<*,*>>? = null,
 ) {
 
-    fun getPartialState(): State<*,*> = state
+    fun getPartialState(): State<T,V> = state
 
     fun getState(): Map<AnimationType, State<*,*>> {
         val stateMap = mutableMapOf<AnimationType, State<*,*>>(animationType to state)
@@ -38,8 +35,8 @@ sealed interface State<T,V: AnimationVector> {
         val visualDescriptor: VisualDescriptor<T,V>) : State<T,V>
     data class Animated<T> (val animation: Animation<T>) : State<T, AnimationVector>
     data class Fixed<T> (val targetValue: T) : State<T, AnimationVector>
-    object Stop : State<Any, AnimationVector>
-    object Forget: State<Any, AnimationVector>
+    object Pause : State<Any, AnimationVector>
+    data object Stop: State<Any, AnimationVector>
 }
 
 class Animation<T>(
