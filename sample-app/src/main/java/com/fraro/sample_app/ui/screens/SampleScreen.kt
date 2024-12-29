@@ -64,6 +64,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.random.Random
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -148,7 +149,7 @@ fun SampleScreen() {
         isStartedCallback = {
             viewModel.animationTimer.startTimer(); },
         isStoppedCallback = {
-            viewModel.animationTimer.stopTimer(); }
+            viewModel.animationTimer.pauseTimer() }
     )
 
     var isShown by remember { mutableStateOf(true) }
@@ -198,7 +199,7 @@ fun SampleScreen() {
 
         traj.add(offsetStateHolder)
 
-        calculateOffsets(
+        calculateRandOffsets(
             maxScreenHeight = screenHeight,
             maxScreenWidth = screenWidth,
             numOffsets = 20
@@ -223,7 +224,7 @@ fun SampleScreen() {
         traj.add(
             StateHolder(
                 id = identifier,
-                state = State.Pause,
+                state = State.Stop,
                 animationType = AnimationType.OFFSET,
                 //wrappedStateHolders = TODO()
             )
@@ -347,7 +348,7 @@ fun SampleScreen() {
                                         )
                                     ),
                                     animationType = AnimationType.OFFSET,
-                                    //wrappedStateHolders = listOf(shapeStateHolder)
+                                    wrappedStateHolders = listOf(shapeStateHolder)
                                 )
 
                                 _dragTrajectory.add(
@@ -417,4 +418,16 @@ fun calculateOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: 
     }
     return offsets
 }
+
+fun calculateRandOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: Int): List<Offset> {
+    val offsets = mutableListOf<Offset>()
+    for (i in 1..numOffsets) {
+        val xi = Random.nextInt(0, maxScreenWidth.toInt())
+        val yi = Random.nextInt(0, maxScreenHeight.toInt())
+        offsets.add(Offset(xi.toFloat(), yi.toFloat()))
+    }
+    return offsets
+}
+
+
 

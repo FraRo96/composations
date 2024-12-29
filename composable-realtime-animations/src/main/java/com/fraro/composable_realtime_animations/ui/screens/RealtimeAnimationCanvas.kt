@@ -2,6 +2,13 @@ package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -19,13 +26,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.star
+import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.AnimationType
@@ -33,7 +53,6 @@ import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.*
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
-import com.fraro.composable_realtime_animations.data.models.offsetDefault
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -48,8 +67,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
-
-import androidx.compose.ui.geometry.Size as ComposeSize
 
 val randomColor
     get() = Color(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
@@ -98,55 +115,123 @@ fun RealtimeAnimationCanvas(
 
         //LaunchedEffect(key1 = collectedFlow) {
 
-            animateCanvas(
+            /*animateCanvas(
                 collectedFlow,
                 elements,
                 coroutineScope,
                 isStartedCallback,
                 isStoppedCallback
-            )
+            )*/
         //}
-        var offset by remember { mutableStateOf(Offset(0f,0f)) }
 
-        elements.values.forEach { element ->
-            offset = (element[AnimationType.OFFSET]
-                ?.getStaticOrAnimatedValue() ?: offsetDefault) as Offset
+        val color = remember { Color(0xFFF15087) }
+
+        val shapeA = remember {
+            RoundedPolygon(
+                12,
+                rounding = CornerRounding(0.2f)
+            )
         }
+        val shapeB = remember {
+            RoundedPolygon.star(
+                12,
+                rounding = CornerRounding(0.2f)
+            )
+        }
+        val morph = remember {
+            Morph(shapeA, shapeB)
+        }
+        val density = LocalDensity.current
+        val configuration = LocalConfiguration.current
 
-        Custom(offset) {
+        val screenHeight = remember {
+            with (density) {
+                configuration.screenHeightDp.dp.toPx()
+            }
+        }
+        val screenWidth = remember {
+            with (density) {
+                configuration.screenWidthDp.dp.toPx()
+            }
+        }
+        val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
+        val infiniteTransition2 = rememberInfiniteTransition("infinite offset movement")
+        val animatedProgress = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                tween(2000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedMorphProgress"
+        )
+        val animatedRotation = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                tween(6000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedMorphProgress"
+        )
+
+        val animatedOffsetX = infiniteTransition2.animateFloat(
+            initialValue = 0f,
+            targetValue = screenWidth,
+            animationSpec = infiniteRepeatable(
+                tween(10000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedOffsetXProgress"
+        )
+
+        val animatedOffsetY = infiniteTransition2.animateFloat(
+            initialValue = 0f,
+            targetValue = screenHeight,
+            animationSpec = infiniteRepeatable(
+                tween(10000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "animatedOffsetYProgress"
+        )
+
+        //var offset by remember { mutableStateOf(Offset(0f,0f)) }
+
+        MovingBox(Offset(animatedOffsetX.value, animatedOffsetY.value)) {
             Box(
                 Modifier
-                    //.graphicsLayer()
-                    .drawWithCache {
-                        onDrawBehind {
-                            drawOval(size = ComposeSize(
-                                width = 100f,
-                                height = 100f), color = Color.Red)
-                        }
-                    }
+                    .clip(
+                        CustomRotatingMorphShape(
+                            morph,
+                            animatedProgress.value,
+                            animatedRotation.value
+                        )
+                    )
                     .padding(0.dp)
+                    .background(color)
                     .size(100.dp)
             ) {
-                SideEffect { println("ciao") }
+                SideEffect { println("Internal box") }
             }
         }
     }
 }
 
 @Composable
-fun Custom(
+fun MovingBox(
     offset: Offset,
-    content: @Composable () -> Unit
+    function:  @Composable () -> Unit
 ) {
-    SideEffect { println("ciaone") }
-    Box(modifier = Modifier.padding(16.dp).offset {
-        //val offset = (offsetDefault)
-        IntOffset(
-            offset.x.roundToInt(),
-            offset.y.roundToInt()
-        )
-    }) {
-        content()
+    SideEffect { println("Moving box") }
+    Box(modifier = Modifier.padding(16.dp)
+        .offset {
+            IntOffset(
+                offset.x.roundToInt(),
+                offset.y.roundToInt()
+            )
+        }
+    ) {
+        function()
     }
 }
 
@@ -267,4 +352,29 @@ fun Flow<StateHolder<*,*>>.toBatchedStateFlow(
             started = SharingStarted.WhileSubscribed(),
             initialValue = mapOf()
         )
+}
+
+class CustomRotatingMorphShape(
+    private val morph: Morph,
+    private val percentage: Float,
+    private val rotation: Float
+) : Shape {
+
+    private val matrix = Matrix()
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
+        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
+        matrix.scale(size.width / 2f, size.height / 2f)
+        matrix.translate(1f, 1f)
+        matrix.rotateZ(rotation)
+
+        val path = morph.toPath(progress = percentage).asComposePath()
+        path.transform(matrix)
+
+        return Outline.Generic(path)
+    }
 }
