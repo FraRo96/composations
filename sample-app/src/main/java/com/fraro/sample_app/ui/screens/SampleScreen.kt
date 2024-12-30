@@ -145,7 +145,7 @@ fun SampleScreen() {
 
     RealtimeAnimationCanvas(
         animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-        samplingInterval = 100,
+        samplingInterval = 10,
         isStartedCallback = {
             viewModel.animationTimer.startTimer(); },
         isStoppedCallback = {

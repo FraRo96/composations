@@ -1,6 +1,7 @@
 package com.fraro.composable_realtime_animations.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -49,10 +50,13 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.AnimationType
+import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.*
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
+import com.fraro.composable_realtime_animations.data.models.offsetDefault
+import com.fraro.composable_realtime_animations.data.models.shapeDefault
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -113,16 +117,16 @@ fun RealtimeAnimationCanvas(
             minActiveState = Lifecycle.State.RESUMED
         )
 
-        //LaunchedEffect(key1 = collectedFlow) {
+        LaunchedEffect(key1 = collectedFlow) {
 
-            /*animateCanvas(
+            animateCanvas(
                 collectedFlow,
                 elements,
                 coroutineScope,
                 isStartedCallback,
                 isStoppedCallback
-            )*/
-        //}
+            )
+        }
 
         val color = remember { Color(0xFFF15087) }
 
@@ -175,7 +179,7 @@ fun RealtimeAnimationCanvas(
             label = "animatedMorphProgress"
         )
 
-        val animatedOffsetX = infiniteTransition2.animateFloat(
+        /*val animatedOffsetX = infiniteTransition2.animateFloat(
             initialValue = 0f,
             targetValue = screenWidth,
             animationSpec = infiniteRepeatable(
@@ -193,11 +197,27 @@ fun RealtimeAnimationCanvas(
                 repeatMode = RepeatMode.Reverse
             ),
             label = "animatedOffsetYProgress"
-        )
+        )*/
 
-        //var offset by remember { mutableStateOf(Offset(0f,0f)) }
+        /*var offsetY by remember { mutableStateOf(Animatable(0f)) }
 
-        MovingBox(Offset(animatedOffsetX.value, animatedOffsetY.value)) {
+        LaunchedEffect(Unit) {
+            coroutineScope.launch {
+                offsetY.animateTo(
+                    targetValue = screenHeight, // target position
+                    animationSpec = tween(durationMillis = 50000)
+                )
+            }
+        }*/
+
+        var offset by remember { mutableStateOf(Offset(0f,0f)) }
+
+        elements.values.forEach { element ->
+            offset = (element[AnimationType.OFFSET]
+                ?.getStaticOrAnimatedValue() ?: offsetDefault) as Offset
+        }
+
+        MovingBox(offset) {
             Box(
                 Modifier
                     .clip(
