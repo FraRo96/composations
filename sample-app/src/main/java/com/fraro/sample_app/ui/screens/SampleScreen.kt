@@ -6,8 +6,14 @@ import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,9 +34,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -38,13 +48,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.pill
+import androidx.graphics.shapes.pillStar
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
 import androidx.lifecycle.ViewModelProvider
@@ -58,7 +73,7 @@ import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.Start
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
-import com.fraro.composable_realtime_animations.ui.screens.RealtimeAnimationCanvas
+import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 import kotlin.math.PI
 import kotlin.math.cos
@@ -85,6 +100,23 @@ fun SampleScreen() {
         RoundedPolygon.star(
             12,
             rounding = CornerRounding(0.2f)
+        )
+    }
+
+    val shapeA2 = remember {
+        RoundedPolygon(
+            8,
+            rounding = CornerRounding(0.2f)
+        )
+    }
+    val shapeB2 = remember {
+        RoundedPolygon.pillStar(
+            rounding = CornerRounding(0.2f)
+        )
+    }
+
+    val shapeB3 = remember {
+        RoundedPolygon.pill(
         )
     }
 
@@ -129,6 +161,54 @@ fun SampleScreen() {
         )
     }
 
+    val morph = remember {
+        Morph(shapeA, shapeB)
+    }
+
+    val morph2 = remember {
+        Morph(shapeB2, shapeA2)
+    }
+
+    val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
+    val animatedProgress = infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress"
+    )
+    val animatedRotation = infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            tween(6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress"
+    )
+
+    val infiniteTransition2 = rememberInfiniteTransition("infinite outline movement 2")
+    val animatedProgress2 = infiniteTransition2.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress2"
+    )
+    val animatedRotation2 = infiniteTransition2.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            tween(10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress2"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -143,14 +223,113 @@ fun SampleScreen() {
         }
     }
 
-    RealtimeAnimationCanvas(
+    /*RealtimeBox(
         animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-        samplingInterval = 10,
+        initialOffset = Offset(0f,0f),
         isStartedCallback = {
             viewModel.animationTimer.startTimer(); },
         isStoppedCallback = {
             viewModel.animationTimer.pauseTimer() }
-    )
+    ) {
+
+        Box(
+            Modifier
+                .clip(
+                    CustomRotatingMorphShape(
+                        morph,
+                        animatedProgress.value,
+                        animatedRotation.value
+                    )
+                )
+                .background(Color.Red)
+                .padding(0.dp)
+                .size(100.dp)
+        ) {
+            SideEffect { println("Internal box") }
+        }
+    }*/
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        /*RealtimeBox(
+            animationFlow = viewModel.animationEmitter.getTransformedFlow(),
+            initialOffset = Offset(0f,0f),
+            isStartedCallback = {
+                viewModel.animationTimer.startTimer(); },
+            isStoppedCallback = {
+                viewModel.animationTimer.pauseTimer() }
+        ) {
+
+            Box(
+                Modifier
+                    .clip(
+                        CustomRotatingMorphShape(
+                            morph,
+                            animatedProgress.value,
+                            animatedRotation.value
+                        )
+                    )
+                    .background(Color.Red)
+                    .padding(0.dp)
+                    .size(100.dp)
+            ) {
+                SideEffect { println("Internal box") }
+            }
+        } */
+
+
+        RealtimeBox(
+            animationFlow = viewModel.animationEmitter.getTransformedFlow(),
+            initialOffset = Offset(100f,300f),
+            isStartedCallback = {
+                viewModel.animationTimer.startTimer(); },
+            isStoppedCallback = {
+                viewModel.animationTimer.pauseTimer() }
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(width = 300.dp, height = 100.dp)
+                    //.background(Color.Yellow.copy(0.3f))
+                    .drawWithCache {
+                        onDrawBehind {
+                            val path = CustomRotatingMorphShape(
+                                morph2,
+                                animatedProgress2.value,
+                                animatedRotation2.value
+                            ).getPath()
+
+                            val pathBounds = path.getBounds()
+                            val pivotX = (pathBounds.topLeft.x + pathBounds.bottomRight.x) / 2F
+                            val pivotY = (pathBounds.topLeft.y + pathBounds.bottomRight.y) / 2F
+                            scale(
+                                scale = size.height,
+                                pivot = Offset(
+                                    size.width / 2,
+                                    size.height / 2
+                                )
+                            ) {
+                                translate(
+                                    left = size.width / 2,
+                                    top = size.height / 2
+                                ) {
+                                    /*drawRect(
+                                        size = size / 2f,
+                                        topLeft = Offset(0f,0f),
+                                        color = Color.Red
+                                    )*/
+                                    drawPath(
+                                        path = path,
+                                        color = Color.Yellow.copy(0.8f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+            ) {
+                SideEffect { println("Internal box") }
+            }
+        }
+    }
 
     var isShown by remember { mutableStateOf(true) }
 
@@ -199,10 +378,10 @@ fun SampleScreen() {
 
         traj.add(offsetStateHolder)
 
-        calculateRandOffsets(
+        calculateOffsets(
             maxScreenHeight = screenHeight,
             maxScreenWidth = screenWidth,
-            numOffsets = 20
+            numOffsets = 40
         ).forEach { currOffset ->
             traj.add(
                 StateHolder<Offset, AnimationVector>(
@@ -236,7 +415,7 @@ fun SampleScreen() {
             } ) { Text("start") }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        /*Box(modifier = Modifier.fillMaxSize()) {
             var offsetX by remember { mutableStateOf(0f) }
             var offsetY by remember { mutableStateOf(0f) }
             var prevTime = 0L
@@ -383,7 +562,7 @@ fun SampleScreen() {
             ) {
                 SideEffect { println("sono il box") }
             }
-        }
+        } */
     }
 }
 
@@ -427,6 +606,33 @@ fun calculateRandOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffse
         offsets.add(Offset(xi.toFloat(), yi.toFloat()))
     }
     return offsets
+}
+
+class CustomRotatingMorphShape(
+    private val morph: Morph,
+    private val percentage: Float,
+    private val rotation: Float
+) : androidx.compose.ui.graphics.Shape {
+
+    private val matrix = Matrix()
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
+        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
+        matrix.scale(size.width / 2f, size.height / 2f)
+        matrix.translate(1f, 1f)
+        //matrix.rotateZ(rotation)
+
+        val path = morph.toPath(progress = percentage).asComposePath()
+        path.transform(matrix)
+
+        return Outline.Generic(path)
+    }
+
+    fun getPath() = morph.toPath(progress = percentage).asComposePath()
 }
 
 
