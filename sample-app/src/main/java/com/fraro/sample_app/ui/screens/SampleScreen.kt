@@ -1,8 +1,9 @@
 package com.fraro.sample_app.ui.screens
 
-import com.fraro.sample_app.R
+import android.graphics.PointF
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -11,8 +12,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,20 +44,22 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.plus
+import androidx.core.graphics.times
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.pill
 import androidx.graphics.shapes.pillStar
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
@@ -64,12 +68,18 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.Animation
 import com.fraro.composable_realtime_animations.data.models.AnimationType
+import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
+import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.Start
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.random.Random
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -85,6 +95,23 @@ fun SampleScreen() {
     val screenHeightDp = localConfig.screenHeightDp.dp
     val screenWidth = with (density) { localConfig.screenWidthDp.dp.toPx() }
     val screenWidthDp = localConfig.screenWidthDp.dp
+
+    val points = floatArrayOf(    radialToCartesian(1f, 270f.toRadians()).x,
+        radialToCartesian(1f, 270f.toRadians()).y,
+        radialToCartesian(1f, 30f.toRadians()).x,
+        radialToCartesian(1f, 30f.toRadians()).y,
+        radialToCartesian(0.1f, 90f.toRadians()).x,
+        radialToCartesian(0.1f, 90f.toRadians()).y,
+        radialToCartesian(1f, 150f.toRadians()).x,
+        radialToCartesian(1f, 150f.toRadians()).y)
+
+    val birdP1 = RoundedPolygon(points, CornerRounding(0.05f, 0.0f), centerX = 0f, centerY = 0f)
+    val birdP2 = RoundedPolygon.star(
+        numVerticesPerRadius = 4,
+        innerRadius = 0.6f,
+        rounding = CornerRounding(0.1f),
+        innerRounding = CornerRounding(0.2f)
+    )
 
     val dodecagonPoly = remember {
         RoundedPolygon(
@@ -143,6 +170,10 @@ fun SampleScreen() {
         Morph(hexagonStarPoly, trianglePoly)
     }
 
+    val birdMorph = remember {
+        Morph(birdP1, birdP2)
+    }
+
     val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
     val animatedProgress = infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -193,8 +224,8 @@ fun SampleScreen() {
     )
 
     val animatedProgress4 = infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.65f,
+        initialValue = 0.2f,
+        targetValue = 0.5f,
         animationSpec = infiniteRepeatable(
             tween(800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
@@ -359,45 +390,45 @@ fun SampleScreen() {
                     //.size(width = (Random.nextInt(20, 70)).dp, height = (Random.nextInt(10, 40)).dp)
                     //.background(Color.Black.copy(0.3f))
             ) {*/
-                Box(
-                    Modifier
-                        .drawWithCache {
-                            onDrawBehind {
-                                val path = CustomRotatingMorphShape(
-                                    engineMorph,
-                                    animatedProgress4.value,
-                                    animatedRotation2.value
-                                ).getPath()
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .drawWithCache {
+                        onDrawBehind {
+                            val path = CustomRotatingMorphShape(
+                                birdMorph,
+                                animatedProgress4.value,
+                                animatedRotation2.value
+                            ).getPath()
 
-                                scale(
-                                    scale = size.height,
-                                    pivot = Offset(
-                                        size.width / 2,
-                                        size.height / 2
-                                    )
+                            scale(
+                                scale = size.height,
+                                pivot = Offset(
+                                    size.width / 2,
+                                    size.height / 2
+                                )
+                            ) {
+                                translate(
+                                    left = size.width / 2,
+                                    top = size.height / 2
                                 ) {
-                                    translate(
-                                        left = size.width / 1.79f,
-                                        top = size.height / 1.80f
-                                    ) {
-                                        drawPath(
-                                            path = path,
-                                            color = Color.Red.copy(0.8f)
-                                        )
-                                    }
+                                    drawPath(
+                                        path = path,
+                                        color = Color.Black.copy(0.8f)
+                                    )
                                 }
                             }
                         }
-                        //.offset(1500.dp, 70.dp)
-                        //.background(Color.Red)
-                        .padding(0.dp)
-                        .size(20.dp)
-                )
-                Image(
-                   painter = painterResource(R.drawable.car),
-                   contentDescription = "bird",
-                   modifier = Modifier.size(100.dp)
-                )
+                    }
+                    //.offset(1500.dp, 70.dp)
+                    //.background(Color.Red)
+                    .padding(0.dp)
+            )
+            /*Image(
+               painter = painterResource(R.drawable.car),
+               contentDescription = "bird",
+               modifier = Modifier.size(100.dp)
+            )*/
             //}
         }
 
@@ -538,6 +569,19 @@ fun Timer(timer: SampleViewModel.Timer, color: Color) {
         fontSize = 24.sp)
 }
 
+internal fun Float.toRadians() = this * PI.toFloat() / 180f
+
+internal val PointZero = PointF(0f, 0f)
+
+internal fun radialToCartesian(
+    radius: Float,
+    angleRadians: Float,
+    center: PointF = PointZero
+) = directionVectorPointF(angleRadians) * radius + center
+
+internal fun directionVectorPointF(angleRadians: Float) =
+    PointF(cos(angleRadians), sin(angleRadians))
+
 fun calculateOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: Int): List<Offset> {
     val offsets = mutableListOf<Offset>()
     for (i in 1..numOffsets) {
@@ -584,7 +628,3 @@ class CustomRotatingMorphShape(
 
     fun getPath() = morph.toPath(progress = percentage).asComposePath()
 }
-
-
-
-
