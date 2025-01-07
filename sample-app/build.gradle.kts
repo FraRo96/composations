@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace = "com.fraro.composable_realtime_animations"
+    namespace = "com.fraro.sample_app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.fraro.composable_realtime_animations"
+        applicationId = "com.fraro.sample_app"
         minSdk = 29
         targetSdk = 33
         versionCode = 1
