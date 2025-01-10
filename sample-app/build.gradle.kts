@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.fraro.sample_app"
-        minSdk = 29
+        minSdk = 33
         targetSdk = 33
         versionCode = 1
         versionName = "1.0"

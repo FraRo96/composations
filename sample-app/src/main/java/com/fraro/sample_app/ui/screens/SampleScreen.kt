@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -74,8 +76,16 @@ import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.Start
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
+import com.fraro.composable_realtime_animations.data.models.rotationDefault
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
+import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
+import com.fraro.sample_app.ui.theme.Pink40
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import org.intellij.lang.annotations.Language
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -85,6 +95,7 @@ import kotlin.random.Random
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SampleScreen() {
+
     val context = LocalContext.current
     val localConfig = LocalConfiguration.current
     val density = LocalDensity.current
@@ -112,6 +123,9 @@ fun SampleScreen() {
         rounding = CornerRounding(0.1f),
         innerRounding = CornerRounding(0.2f)
     )
+
+    val treeTrunkP1 = RoundedPolygon.pill()
+    val treeTrunkP2 = RoundedPolygon.star(numVerticesPerRadius = 7, innerRadius = 0.01f)
 
     val dodecagonPoly = remember {
         RoundedPolygon(
@@ -174,6 +188,10 @@ fun SampleScreen() {
         Morph(birdP1, birdP2)
     }
 
+    val treeTrunkMorph = remember {
+        Morph(treeTrunkP1, treeTrunkP2)
+    }
+
     val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
     val animatedProgress = infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -228,6 +246,16 @@ fun SampleScreen() {
         targetValue = 0.5f,
         animationSpec = infiniteRepeatable(
             tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress3"
+    )
+
+    val animatedProgress5 = infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            tween(8000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "animatedMorphProgress3"
@@ -373,6 +401,53 @@ fun SampleScreen() {
                     }
                 }
         ) {}
+
+        RealtimeBox(
+            animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),
+            initialOffset = Offset(screenWidth / 3, screenHeight / 1.3f)
+        ) {
+            Box(
+                Modifier
+                    .size(200.dp)
+                    .drawWithCache {
+                        onDrawBehind {
+                            val path = CustomRotatingMorphShape(
+                                treeTrunkMorph,
+                                animatedProgress5.value,
+                                animatedRotation2.value,
+                                8f
+                            ).getPath()
+
+                            val pivot = Offset(
+                                size.width / 2,
+                                size.height / 2
+                            )
+                            rotate(degrees = -90f, pivot = pivot) {
+                                scale(
+                                    scale = size.height,
+                                    pivot = pivot
+                                ) {
+                                    translate(
+                                        left = size.width / 2,
+                                        top = size.height / 2
+                                    ) {
+                                        //rotate(degrees = 45f, pivot = pivot) {
+                                        drawPath(
+                                            path = path,
+                                            color = Pink40
+                                        )
+                                        //}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //.offset(1500.dp, 70.dp)
+                    //.background(Color.Red)
+                    .padding(0.dp)
+            )
+        }
+
         RealtimeBox(
             animationFlow = viewModel.animationEmitter.getTransformedFlow(),
             initialOffset = Offset(
@@ -390,6 +465,13 @@ fun SampleScreen() {
                     //.size(width = (Random.nextInt(20, 70)).dp, height = (Random.nextInt(10, 40)).dp)
                     //.background(Color.Black.copy(0.3f))
             ) {*/
+            /*Image(
+               painter = painterResource(R.drawable.car),
+               contentDescription = "bird",
+               modifier = Modifier.size(100.dp)
+            )*/
+            //}
+
             Box(
                 Modifier
                     .size(40.dp)
@@ -605,7 +687,8 @@ fun calculateRandOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffse
 class CustomRotatingMorphShape(
     private val morph: Morph,
     private val percentage: Float,
-    private val rotation: Float
+    private val rotation: Float,
+    private val heightToWidthScaleFactor: Float = 1F,
 ) : androidx.compose.ui.graphics.Shape {
 
     private val matrix = Matrix()
@@ -616,7 +699,7 @@ class CustomRotatingMorphShape(
     ): Outline {
         // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
         // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
-        matrix.scale(size.width / 2f, size.height / 2f)
+        matrix.scale(size.width / 2f, (size.height / 2f) * heightToWidthScaleFactor)
         matrix.translate(1f, 1f)
         //matrix.rotateZ(rotation)
 

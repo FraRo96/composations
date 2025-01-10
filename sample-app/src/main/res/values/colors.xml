@@ -8,4 +8,6 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="indigo">#98BCDC</color>
+    <color name="night_purple">#6a0d83</color>
+    <color name="night_red">#ee5d6c</color>
 </resources>

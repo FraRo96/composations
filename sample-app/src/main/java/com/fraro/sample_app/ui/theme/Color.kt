@@ -11,3 +11,6 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 val Indigo = Color(0xFF98BCDC)
 val PinkOrange = Color(0xFFD87575)
+
+val NightPurple = Color(0xff6a0d83)
+val NightRed = Color(0xffee5d6c)
