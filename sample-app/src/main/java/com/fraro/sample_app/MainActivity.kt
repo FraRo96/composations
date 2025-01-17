@@ -1,16 +1,22 @@
 package com.fraro.sample_app
 
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.RuntimeShader
+import android.graphics.Shader
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
@@ -30,7 +36,7 @@ import org.intellij.lang.annotations.Language
 class MainActivity : ComponentActivity() {
 
     @Language("AGSL")
-    val SHADER = """
+    private val SHADER = """
         uniform float2 resolution;
         layout(color) uniform half4 color;
         layout(color) uniform half4 color2;
@@ -38,10 +44,11 @@ class MainActivity : ComponentActivity() {
         half4 main(in float2 fragCoord) {
             float2 uv = fragCoord/resolution.xy;
             
-            float mixValue = distance(uv, vec2(0,1));
+            float mixValue = distance(uv, vec2(1,1));
             return mix(color, color2, mixValue);
         }
     """.trimIndent()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,8 +94,3 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Serializable
-object PreparationRoute
-
-@Serializable
-object SimulationRoute

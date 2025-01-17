@@ -63,14 +63,6 @@ open class VisualDescriptor<T,V: AnimationVector>(
 
     fun getStaticOrAnimatedValue(): T = if (isAnimated) animatable.value else currentValue
 
-    fun startAnimation() {
-        isAnimated = true
-        animatable = Animatable(
-            initialValue = currentValue,
-            typeConverter = animatable.typeConverter
-        )
-    }
-
     fun stopAnimation() {
         isAnimated = false
         currentValue = animatable.value
@@ -109,83 +101,5 @@ open class VisualDescriptor<T,V: AnimationVector>(
             targetValue = targetValue,
             animationSpec = this.animationSpec,
         )
-    }
-}
-
-class MorphVisualDescriptor (
-    currentValue: Float,
-    targetValue: Float,
-    durationMillis: Int,
-    animationType: AnimationType,
-    animatable: Animatable<Float, AnimationVector1D>,
-    isAnimated: Boolean,
-    animationSpec: AnimationSpec<Float>,
-    var shape1: Shape,
-    var shape2: Shape? = null
-) : VisualDescriptor<Float, AnimationVector1D>(
-                        currentValue,
-                        targetValue,
-                        durationMillis,
-                        animationType,
-                        animatable,
-                        animationSpec,
-                        isAnimated,
-                        //vectorConverter
-) {
-
-    val morph: Morph? = setMorph(shape1, shape2)
-
-    fun setMorph(shape1: Shape, shape2: Shape?): Morph? {
-        val polygon1 = (shape1 as? Shape.CustomPolygonalShape)?.roundedPolygon
-        val polygon2 = (shape2 as? Shape.CustomPolygonalShape)?.roundedPolygon
-        return polygon1?.let {
-            polygon2?.let {
-                this.shape1 = shape1
-                this.shape2 = shape2
-                Morph(polygon1, polygon2)
-            }
-        }
-    }
-
-    fun getStaticOrAnimatedShape(): Shape =
-        if (isAnimated)
-            morph?.let {
-                Shape.CustomPolygonalShape(
-                    path = it.toPath(progress = animatable.value).asComposePath(),
-                    //size = Size.RescaleFactor(100F)
-                )
-            } ?: shape1
-        else shape1
-
-    fun getStaticOrAnimatedMorphShape(): androidx.compose.ui.graphics.Shape? =
-        if (isAnimated)
-            morph?.let {
-                MorphShape(
-                    it,
-                    animatable.value
-                )
-            } else null
-}
-
-class MorphShape(
-    private val morph: Morph,
-    private val percentage: Float,
-) : androidx.compose.ui.graphics.Shape {
-
-    private val matrix = Matrix()
-    override fun createOutline(
-        size: Size,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ): Outline {
-        // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
-        // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
-        matrix.scale(size.width / 2f, size.height / 2f)
-        matrix.translate(1f, 1f)
-
-        val path = morph.toPath(progress = percentage).asComposePath()
-        path.transform(matrix)
-
-        return Outline.Generic(path)
     }
 }

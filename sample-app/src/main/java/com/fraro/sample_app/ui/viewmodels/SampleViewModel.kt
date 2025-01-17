@@ -3,7 +3,6 @@ package com.fraro.sample_app.ui.viewmodels
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow

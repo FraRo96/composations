@@ -12,5 +12,14 @@ val Pink40 = Color(0xFF7D5260)
 val Indigo = Color(0xFF98BCDC)
 val PinkOrange = Color(0xFFD87575)
 
+val Brown = Color(0xff895129)
+val DarkBrown = Color(0xff3d2412)
+
+val LightBlue = Color(0xffB4C6E8)
+val LightPink = Color(0xffFEC3EF)
+
 val NightPurple = Color(0xff6a0d83)
 val NightRed = Color(0xffee5d6c)
+
+val DarkGreen = Color(0xff386641)
+val MidGreen = Color(0xff6a994e)

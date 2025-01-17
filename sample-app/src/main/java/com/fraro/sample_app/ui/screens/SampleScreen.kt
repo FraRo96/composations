@@ -1,6 +1,8 @@
 package com.fraro.sample_app.ui.screens
 
+import android.annotation.SuppressLint
 import android.graphics.PointF
+import android.graphics.RuntimeShader
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector
 import androidx.compose.animation.core.AnimationVector1D
@@ -12,24 +14,30 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,22 +47,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
@@ -70,28 +79,126 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.Animation
 import com.fraro.composable_realtime_animations.data.models.AnimationType
-import com.fraro.composable_realtime_animations.data.models.MorphVisualDescriptor
-import com.fraro.composable_realtime_animations.data.models.Shape
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.Start
 import com.fraro.composable_realtime_animations.data.models.StateHolder
 import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
-import com.fraro.composable_realtime_animations.data.models.rotationDefault
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
-import com.fraro.composable_realtime_animations.ui.screens.toBatchedStateFlow
-import com.fraro.sample_app.ui.theme.Pink40
+import com.fraro.sample_app.ui.theme.Brown
+import com.fraro.sample_app.ui.theme.DarkBrown
+import com.fraro.sample_app.ui.theme.DarkGreen
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.stateIn
 import org.intellij.lang.annotations.Language
+import com.fraro.sample_app.ui.theme.NightPurple
+import com.fraro.sample_app.ui.theme.NightRed
+import com.fraro.sample_app.ui.theme.Pink80
+import com.fraro.sample_app.ui.theme.PinkOrange
+import com.google.android.gms.common.api.internal.zacj
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlin.text.toFloat
 
+@Language("AGSL")
+private val SHADER_TREE = """
+            uniform float2 resolution;
+            layout(color) uniform half4 brownColor;
+            layout(color) uniform half4 darkerBrownColor;
+           
+            vec3 hash33(vec3 p){ 
+                
+                float n = sin(dot(p, vec3(7, 157, 113)));    
+                return fract(vec3(2097152.011, 262144.984, 32768.115)*n); 
+            }
+            float voronoi(vec3 p){
+
+            	vec3 b, r, g = floor(p);
+            	p = fract(p); // "p -= g;" works on some GPUs, but not all, for some annoying reason.
+            	
+            	float d = 0.5; 
+
+                for(float j = -1.; j <= 1.; j++) {
+            	    for(float i = -1.; i <= 1.; i++) {
+                		
+            		    b = vec3(i, j, -1.);
+            		    r = b - p + hash33(g+b);
+            		    d = min(d, dot(r,r));
+                		
+            		    b.z = 0.0;
+            		    r = b - p + hash33(g+b);
+            		    d = min(d, dot(r,r));
+                		
+            		    b.z = 1.;
+            		    r = b - p + hash33(g+b);
+            		    d = min(d, dot(r,r));
+                			
+            	    }
+            	}
+            	
+            	return d; // Range: [0, 1]
+            }
+
+            float noiseLayers(in vec3 p) {
+                vec3 t = vec3(0., 0., 0.);
+
+                const int iter = 5; // Just five layers is enough.
+                float tot = 0.08, sum = 0., amp = 0.5; // Total, sum, amplitude.
+
+                for (int i = 0; i < iter; i++) {
+                    tot += voronoi(p + t) * amp; // Add the layer to the total.
+                    p *= 2.0; // Position multiplied by two.
+                    t *= 1.5; // Time multiplied by less than two.
+                    sum += amp; // Sum of amplitudes.
+                    amp *= 0.5; // Decrease successive layer amplitude, as normal.
+                }
+                
+                return tot/sum; // Range: [0, 1].
+            }
+            //=================================================================
+
+
+            vec4 main(in vec2 fragcoord)
+            {
+                vec2 uv = (vec2(fragcoord.x/resolution.x, fragcoord.y/resolution.y));
+                vec2 uv2 = (vec2(fragcoord.x/resolution.x, fragcoord.y/resolution.y));
+                vec2 uv3 = (vec2(fragcoord.x/resolution.x, fragcoord.y/resolution.y));
+                vec2 uv4 = (vec2(fragcoord.x/resolution.x, fragcoord.y/resolution.y));
+                
+                uv *= vec2(55., 95.); 
+            	vec3 rd = normalize(vec3(uv.x, uv.y, 3.1415926535898/8.));
+            	float c = voronoi(rd*120.);
+                vec3 col =  vec3(1.0, 1.0, 1.0) - (c * vec3(2.0,2.0,2.0));
+            
+                uv2 *= vec2(16., 32.);
+            	vec3 rd2 = normalize(vec3(uv2.x, uv2.y, 3.1415926535898/8.));
+            	float c2 = voronoi(rd2*30.);
+                vec3 col2 =  vec3(1.0, 1.0, 1.0) - (c2 * vec3(2.0,2.0,2.0));
+                
+                uv4 *= vec2(16., 32.);
+                vec3 rd4 = normalize(vec3(uv4.x, uv4.y, 3.1415926535898/8.));
+                float c4 = voronoi(rd4*30.);
+                vec3 col4 =  (c4 * vec3(2.0,2.0,2.0));
+                
+                uv3 *= vec2(3., 15.);
+                vec3 rd3 = normalize(vec3(uv3.x, uv3.y, 3.1415926535898/8.));
+                float c3 = voronoi(rd3*130.8);
+                vec3 col3 =  vec3(1.0, 1.0, 1.0) - (c3 * vec3(2.0,2.0,2.0));
+                vec3 max = vec3(1.0,1.0,1.0);
+            	vec4 finalColor = vec4((2*col2 - col3 + (col * (col2-col3)) + 2*col4) * darkerBrownColor.xyz, 1.);
+            
+                vec4 black = vec4(0.0,0.0,0.0,1.0);
+                float2 uvMap = fragcoord/resolution.xy;
+            
+                float mixValue = distance(uvMap, vec2(0.1,0.39));
+                //return mix(finalColor, black, mixValue);
+                return finalColor;
+            }
+    """.trimIndent()
+
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SampleScreen() {
@@ -125,7 +232,12 @@ fun SampleScreen() {
     )
 
     val treeTrunkP1 = RoundedPolygon.pill()
-    val treeTrunkP2 = RoundedPolygon.star(numVerticesPerRadius = 7, innerRadius = 0.01f)
+    val treeTrunkP2 = RoundedPolygon.star(
+        numVerticesPerRadius = 5,
+        innerRadius = 0.01f,
+        //rounding = CornerRounding(0.05f),
+        //innerRounding = CornerRounding(0.05f)
+    )
 
     val dodecagonPoly = remember {
         RoundedPolygon(
@@ -172,12 +284,30 @@ fun SampleScreen() {
         )
     }
 
+    val pillStar = remember {
+        RoundedPolygon.pillStar(
+            rounding = CornerRounding(0.2f),
+            numVerticesPerRadius = 10
+        )
+    }
+
+    val pillStarMultipleVertsPoly2 = remember {
+        RoundedPolygon.pillStar(
+            rounding = CornerRounding(0f),
+            numVerticesPerRadius = 80
+        )
+    }
+
     val circularMorph = remember {
         Morph(dodecagonPoly, dodecagonStarPoly)
     }
 
-    val cloudMorph = remember {
+    val groundGrassMorph = remember {
         Morph(octagonPoly, pillStarMultipleVertsPoly)
+    }
+
+    val cloudMorph = remember {
+        Morph(octagonPoly, pillStar)
     }
 
     val engineMorph = remember {
@@ -192,46 +322,9 @@ fun SampleScreen() {
         Morph(treeTrunkP1, treeTrunkP2)
     }
 
-    val infiniteTransition = rememberInfiniteTransition("infinite outline movement")
-    val animatedProgress = infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "animatedMorphProgress"
-    )
-    val animatedRotation = infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            tween(6000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "animatedMorphProgress"
-    )
+    val infiniteTransition = rememberInfiniteTransition("infinite nature movement")
 
-    val animatedProgress2 = infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "animatedMorphProgress2"
-    )
-    val animatedRotation2 = infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            tween(10000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "animatedMorphProgress2"
-    )
-
-    val animatedProgress3 = infiniteTransition.animateFloat(
+    val natureProgress = infiniteTransition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
@@ -241,139 +334,73 @@ fun SampleScreen() {
         label = "animatedMorphProgress2"
     )
 
-    val animatedProgress4 = infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.5f,
+    val groundGrassProgress = infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            tween(800, easing = LinearEasing),
+            tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress2"
+    )
+
+    val animatedProgressB1 = infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.55f,
+        animationSpec = infiniteRepeatable(
+            tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "animatedMorphProgress3"
     )
 
-    val animatedProgress5 = infiniteTransition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 0.75f,
+
+    val animatedProgressB2 = infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.55f,
         animationSpec = infiniteRepeatable(
-            tween(8000, easing = LinearEasing),
+            tween(900, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "animatedMorphProgress3"
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp, end = 30.dp),
-        horizontalAlignment = Alignment.End
-    ) {
-        Row {
-            Timer(viewModel.dragTimer, Color.Red)
-        }
-        Row {
-            Timer(viewModel.animationTimer, Color.Blue)
-        }
-    }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
-
-        Box(
-            Modifier
-                .clip(
-                    CustomRotatingMorphShape(
-                        circularMorph,
-                        animatedProgress.value,
-                        animatedRotation.value
+        for (i in 1..40) {
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(
+                        x = Random.nextInt(0, screenWidthDp.toPx().toInt()),
+                        y = Random.nextInt(0, (screenHeightDp.toPx().toInt() / 3))
+                    ) }
+                    .clip(
+                        CustomRotatingMorphShape(
+                            circularMorph,
+                            1f,
+                            0f
+                        )
                     )
-                )
-                .offset()
-                .background(Color.Yellow)
-                .padding(0.dp)
-                .size(100.dp)
-        )
+                    .padding(0.dp)
+                    .background(Color.Yellow)
+                    .size(7.dp / Random.nextInt(1,3))
+            ) {
+            }
+        }
 
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .offset(0.dp, 60.dp)
-                .size(width = 300.dp, height = 100.dp)
+                .offset(150.dp, 0.dp)
+                .size(width = 120.dp, height = 100.dp)
                 //.background(Color.Yellow.copy(0.3f))
                 .drawWithCache {
                     onDrawBehind {
                         val path = CustomRotatingMorphShape(
-                            cloudMorph,
-                            animatedProgress2.value,
-                            animatedRotation2.value
-                        ).getPath()
-
-                        scale(
-                            scale = size.height,
-                            pivot = Offset(
-                                size.width / 2,
-                                size.height / 2
-                            )
-                        ) {
-                            translate(
-                                left = size.width / 2,
-                                top = size.height / 2
-                            ) {
-                                drawPath(
-                                    path = path,
-                                    color = Color.Cyan.copy(0.3f)
-                                )
-                            }
-                        }
-                    }
-                }
-        ) {}
-
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .offset(150.dp, 50.dp)
-                .size(width = 340.dp, height = 120.dp)
-                //.background(Color.Yellow.copy(0.3f))
-                .drawWithCache {
-                    onDrawBehind {
-                        val path = CustomRotatingMorphShape(
-                            cloudMorph,
-                            animatedProgress2.value,
-                            animatedRotation2.value
-                        ).getPath()
-
-                        scale(
-                            scale = size.height,
-                            pivot = Offset(
-                                size.width / 2,
-                                size.height / 2
-                            )
-                        ) {
-                            translate(
-                                left = size.width / 2,
-                                top = size.height / 2
-                            ) {
-                                drawPath(
-                                    path = path,
-                                    color = Color.Cyan.copy(0.3f)
-                                )
-                            }
-                        }
-                    }
-                }
-        ) {}
-
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .offset(50.dp, 150.dp)
-                .size(width = 100.dp, height = 80.dp)
-                //.background(Color.Yellow.copy(0.3f))
-                .drawWithCache {
-                    onDrawBehind {
-                        val path = CustomRotatingMorphShape(
-                            cloudMorph,
-                            animatedProgress2.value,
-                            animatedRotation2.value
+                            groundGrassMorph,
+                            natureProgress.value,
+                            0f
                         ).getPath()
 
                         scale(
@@ -402,75 +429,214 @@ fun SampleScreen() {
                 }
         ) {}
 
-        RealtimeBox(
-            animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),
-            initialOffset = Offset(screenWidth / 3, screenHeight / 1.3f)
-        ) {
-            Box(
-                Modifier
-                    .size(200.dp)
-                    .drawWithCache {
-                        onDrawBehind {
-                            val path = CustomRotatingMorphShape(
-                                treeTrunkMorph,
-                                animatedProgress5.value,
-                                animatedRotation2.value,
-                                8f
-                            ).getPath()
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .offset(0.dp, 0.dp)
+                .size(width = 150.dp, height = 130.dp)
+                //.background(Color.Yellow.copy(0.3f))
+                .drawWithCache {
+                    onDrawBehind {
+                        val path = CustomRotatingMorphShape(
+                            groundGrassMorph,
+                            natureProgress.value,
+                            0f
+                        ).getPath()
 
-                            val pivot = Offset(
+                        scale(
+                            scale = size.height,
+                            pivot = Offset(
                                 size.width / 2,
                                 size.height / 2
                             )
-                            rotate(degrees = -90f, pivot = pivot) {
+                        ) {
+                            translate(
+                                left = size.width / 2,
+                                top = size.height / 2
+                            ) {
+                                /*drawRect(
+                                    size = size / 2f,
+                                    topLeft = Offset(0f,0f),
+                                    color = Color.Red
+                                )*/
+                                drawPath(
+                                    path = path,
+                                    color = Color.Cyan.copy(0.1f)
+                                )
+                            }
+                        }
+                    }
+                }
+        ) {}
+
+        if (screenHeight > screenWidth) {
+            RealtimeBox(
+                animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),
+                initialOffset = Offset(screenWidth / 1.55f, screenHeight / 2.7f)
+            ) {
+                Box(
+                    Modifier
+                        .size(screenWidthDp / 2.5f)
+                        .drawWithCache {
+                            val shader = RuntimeShader(SHADER_TREE)
+                            val shaderBrush = ShaderBrush(shader)
+                            shader.setFloatUniform("resolution", size.width, size.height)
+                            shader.setColorUniform(
+                                "brownColor",
+                                android.graphics.Color.valueOf(
+                                    Brown.red,
+                                    Brown.green,
+                                    Brown.blue,
+                                    1f
+                                )
+                            )
+
+                            shader.setColorUniform(
+                                "darkerBrownColor",
+                                android.graphics.Color.valueOf(
+                                    DarkBrown.red,
+                                    DarkBrown.green,
+                                    DarkBrown.blue,
+                                    1f
+                                )
+                            )
+                            onDrawBehind {
+                                val path = CustomRotatingMorphShape(
+                                    treeTrunkMorph,
+                                    0.5f,
+                                    0f
+                                ).getPath()
+
+                                val pivot = Offset(
+                                    size.width / 2,
+                                    size.height / 2
+                                )
+                                rotate(degrees = 180f, pivot = pivot) {
+                                    scale(
+                                        scale = size.height,
+                                        pivot = pivot
+                                    ) {
+                                        translate(
+                                            left = size.width / 2,
+                                            top = size.height / 2
+                                        ) {
+                                            //rotate(degrees = 45f, pivot = pivot) {
+                                            drawPath(
+                                                path = path,
+                                                brush = shaderBrush,
+
+                                                )
+                                            //}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        //.offset(1500.dp, 70.dp)
+                        //.background(Color.Red)
+                        .padding(0.dp)
+                )
+            }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .offset(screenWidthDp / 1.5f, screenHeightDp / 3.7f)
+                    .size(width = 100.dp, height = 80.dp)
+                    //.background(Color.Yellow.copy(0.3f))
+                    .drawWithCache {
+                        onDrawBehind {
+                            val path = CustomRotatingMorphShape(
+                                cloudMorph,
+                                natureProgress.value,
+                                0f
+                            ).getPath()
+
+                            scale(
+                                scale = size.height,
+                                pivot = Offset(
+                                    size.width / 2,
+                                    size.height / 2
+                                )
+                            ) {
+                                translate(
+                                    left = size.width / 2,
+                                    top = size.height / 2
+                                ) {
+                                    /*drawRect(
+                                        size = size / 2f,
+                                        topLeft = Offset(0f,0f),
+                                        color = Color.Red
+                                    )*/
+                                    drawPath(
+                                        path = path,
+                                        color = DarkGreen.copy(0.85f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+            ) {}
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .offset(screenWidthDp / 3.5f, screenHeightDp / 2.55f)
+                    .size(width = 100.dp, height = 80.dp)
+                    //.background(Color.Yellow.copy(0.3f))
+                    .drawWithCache {
+                        onDrawBehind {
+                            val path = CustomRotatingMorphShape(
+                                cloudMorph,
+                                natureProgress.value,
+                                0f
+                            ).getPath()
+
+                            rotate(
+                                degrees = 65f,
+                                pivot = Offset(
+                                    size.width / 2,
+                                    size.height / 2
+                                )
+                            ) {
                                 scale(
                                     scale = size.height,
-                                    pivot = pivot
+                                    pivot = Offset(
+                                        size.width / 2,
+                                        size.height / 2
+                                    )
                                 ) {
                                     translate(
                                         left = size.width / 2,
                                         top = size.height / 2
                                     ) {
-                                        //rotate(degrees = 45f, pivot = pivot) {
+                                        /*drawRect(
+                                            size = size / 2f,
+                                            topLeft = Offset(0f,0f),
+                                            color = Color.Red
+                                        )*/
                                         drawPath(
                                             path = path,
-                                            color = Pink40
+                                            color = DarkGreen.copy(0.85f)
                                         )
-                                        //}
                                     }
                                 }
                             }
                         }
                     }
-                    //.offset(1500.dp, 70.dp)
-                    //.background(Color.Red)
-                    .padding(0.dp)
-            )
+            ) {}
+
         }
 
         RealtimeBox(
-            animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-            initialOffset = Offset(
-                x = (screenWidth / 1.7).toFloat(),
-                y = (screenHeight / 3).toFloat()),
-            initialRotation = Random.nextInt(-45, 45).toFloat(),
+            animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),// viewModel.animationEmitter.getTransformedFlow(),
+            initialOffset = Offset(screenWidth / 1.55f, screenHeight / 1.75f),
+            initialRotation = -45f,
             isStartedCallback = {
                 viewModel.animationTimer.startTimer(); },
             isStoppedCallback = {
                 viewModel.animationTimer.pauseTimer() }
         ) {
-            /*Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    //.size(width = (Random.nextInt(20, 70)).dp, height = (Random.nextInt(10, 40)).dp)
-                    //.background(Color.Black.copy(0.3f))
-            ) {*/
-            /*Image(
-               painter = painterResource(R.drawable.car),
-               contentDescription = "bird",
-               modifier = Modifier.size(100.dp)
-            )*/
-            //}
 
             Box(
                 Modifier
@@ -479,8 +645,8 @@ fun SampleScreen() {
                         onDrawBehind {
                             val path = CustomRotatingMorphShape(
                                 birdMorph,
-                                animatedProgress4.value,
-                                animatedRotation2.value
+                                animatedProgressB1.value,
+                                0f
                             ).getPath()
 
                             scale(
@@ -514,130 +680,253 @@ fun SampleScreen() {
             //}
         }
 
-        Column(modifier = Modifier.align(Alignment.BottomCenter)) {
+        val initialOffsetBat2 = remember { Offset(screenWidth / 1.25f, screenHeight / 1.85f) }
+        val initialRotationBat2 = remember { 0f }
+
+        RealtimeBox(
+            animationFlow = viewModel.animationEmitter.getTransformedFlow(),
+            initialOffset = initialOffsetBat2,
+            initialRotation = initialRotationBat2,
+            isStartedCallback = {
+                viewModel.animationTimer.startTimer() },
+            isStoppedCallback = {
+                viewModel.animationTimer.pauseTimer() }
+        ) {
+
             Box(
                 Modifier
-                    .size(width = screenWidthDp, height = 100.dp)
-                    .offset(0.dp, min(screenHeightDp, screenWidthDp) / 4)
+                    .size(30.dp)
                     .drawWithCache {
                         onDrawBehind {
                             val path = CustomRotatingMorphShape(
-                                cloudMorph,
-                                animatedProgress3.value,
-                                animatedRotation2.value
+                                birdMorph,
+                                animatedProgressB2.value,
+                                0f
                             ).getPath()
 
                             scale(
-                                scale = size.width,
+                                scale = size.height,
                                 pivot = Offset(
                                     size.width / 2,
                                     size.height / 2
                                 )
                             ) {
                                 translate(
-                                    left = size.width / 1.9995f,
-                                    top = size.height / 1.993f
+                                    left = size.width / 2,
+                                    top = size.height / 2
                                 ) {
-                                    /*drawRect(
-                                        size = size / 2f,
-                                        topLeft = Offset(0f,0f),
-                                        color = Color.Red
-                                    )*/
                                     drawPath(
                                         path = path,
-                                        color = Color.Green.copy(0.3f)
+                                        color = Color.Black.copy(0.8f)
                                     )
                                 }
                             }
                         }
                     }
-                    //.background(Color.Green)
+                    //.offset(1500.dp, 70.dp)
+                    //.background(Color.Red)
                     .padding(0.dp)
-            ) {
-                SideEffect { println("Internal box") }
+            )
+            /*Image(
+               painter = painterResource(R.drawable.car),
+               contentDescription = "bird",
+               modifier = Modifier.size(100.dp)
+            )*/
+            //}
+        }
+
+        if (screenWidth < screenHeight) {
+            Column(modifier = Modifier.align(Alignment.BottomCenter)) {
+                Box(
+                    Modifier
+                        .size(width = screenWidthDp, height = 100.dp)
+                        .offset(0.dp, screenWidthDp / 4)
+                        .drawWithCache {
+                            onDrawBehind {
+                                val path = CustomRotatingMorphShape(
+                                    groundGrassMorph,
+                                    groundGrassProgress.value,
+                                    0f
+                                ).getPath()
+
+                                scale(
+                                    scale = size.width,
+                                    pivot = Offset(
+                                        size.width / 2,
+                                        size.height / 2
+                                    )
+                                ) {
+                                    translate(
+                                        left = size.width / 1.9995f,
+                                        top = size.height / 1.993f
+                                    ) {
+                                        /*drawRect(
+                                            size = size / 2f,
+                                            topLeft = Offset(0f,0f),
+                                            color = Color.Red
+                                        )*/
+                                        drawPath(
+                                            path = path,
+                                            color = Color.Green.copy(0.3f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        //.background(Color.Green)
+                        .padding(0.dp)
+                ) {
+                    SideEffect { println("Internal box") }
+                }
             }
         }
-    }
 
-    var isShown by remember { mutableStateOf(true) }
+        var identifier by remember { mutableLongStateOf(0L) }
 
-    var identifier by remember { mutableStateOf(0L) }
-
-    if (isShown) {
         val traj: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
-        val anim = remember { Animatable(
-            initialValue = Offset(
-                0f,
-                0f
-            ),
+
+        val offsetAnimatable = remember { Animatable(
+                initialValue = initialOffsetBat2,
             typeConverter = Offset.VectorConverter) }
 
-        val offsetStateHolder = remember {
+        val rotationAnimatable = remember { Animatable(
+            initialValue = initialRotationBat2,
+            typeConverter = Float.VectorConverter) }
+
+        val startRotation = remember {
+            StateHolder<Float, AnimationVector1D>(
+                id = identifier,
+                state = Start(
+                    visualDescriptor = VisualDescriptor(
+                        currentValue = initialRotationBat2,
+                        animationType = AnimationType.ROTATION,
+                        animationSpec = tween(
+                            durationMillis = 1000,
+                            easing = LinearEasing
+                        ),
+                        animatable = rotationAnimatable,
+                        isAnimated = true,
+                        durationMillis = 1000
+                    )
+                ),
+                animationType = AnimationType.ROTATION
+            )
+        }
+
+        val startOffset = remember {
             StateHolder<Offset, AnimationVector2D>(
                 id = identifier,
                 state = Start(
                     visualDescriptor = VisualDescriptor(
-                        currentValue = Offset(
-                            0f,
-                            0f
-                        ),
+                        currentValue = initialOffsetBat2,
                         animationType = AnimationType.OFFSET,
                         animationSpec = tween(
                             durationMillis = 1000,
                             easing = LinearEasing
                         ),
-                        animatable = anim,
+                        animatable = offsetAnimatable,
                         isAnimated = true,
                         durationMillis = 1000
                     )
                 ),
                 animationType = AnimationType.OFFSET,
-                //wrappedStateHolders = listOf(shapeStateHolder)
+                wrappedStateHolders = listOf(
+                    startRotation
+                )
             )
         }
-        val screenHeight = remember {
-            with(density) { localConfig.screenHeightDp.dp.toPx() }
-        }
-        val screenWidth = remember {
-            with(density) { localConfig.screenWidthDp.dp.toPx() }
-        }
 
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Button(onClick = {
-                traj.add(offsetStateHolder)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Timer(viewModel.animationTimer, Pink80)
+            Row {
+                IconButton(onClick = { }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
+                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "decrement")
+                }
+                Text(text = "0", color = Pink80, modifier = Modifier.padding(top = 15.dp))
+                IconButton(onClick = { }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
+                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "increment")
+                }
+            }
+            OutlinedButton(
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent
+                ),
+                border = BorderStroke( width = 1.dp, color = PinkOrange ),
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                NightPurple,
+                                NightRed,
+                            )
+                        ), shape = ButtonDefaults.shape
+                    )
+                    .height(ButtonDefaults.MinHeight),
+                onClick = {
+                    traj.add(startOffset)
 
-                calculateRandOffsets(
-                    maxScreenHeight = screenHeight,
-                    maxScreenWidth = screenWidth,
-                    numOffsets = 10
-                ).forEach { currOffset ->
-                    traj.add(
-                        StateHolder<Offset, AnimationVector>(
+                    generateRandomPath(
+                        initialOffset = initialOffsetBat2,
+                        initialRotation = initialRotationBat2,
+                        maxScreenHeight = screenHeight,
+                        maxScreenWidth = screenWidth,
+                        numOffsets = 10
+                    ).forEach { (currOffset, currRotation) ->
+
+                        val rotationStateHolder = StateHolder<Float, AnimationVector>(
                             id = identifier,
                             state = State.Animated(
                                 animation = Animation(
                                     animationSpec = tween(
-                                        durationMillis = 1000,
+                                        durationMillis = 2000,
                                         easing = LinearEasing
                                     ),
-                                    targetValue = currOffset,
-                                    durationMillis = 1000
+                                    targetValue = currRotation,
+                                    durationMillis = 2000
                                 )
                             ),
-                            animationType = AnimationType.OFFSET
+                            animationType = AnimationType.ROTATION
+                        )
+
+                        traj.add(
+                            StateHolder<Offset, AnimationVector>(
+                                id = identifier,
+                                state = State.Animated(
+                                    animation = Animation(
+                                        animationSpec = tween(
+                                            durationMillis = 1000,
+                                            easing = LinearEasing
+                                        ),
+                                        targetValue = currOffset,
+                                        durationMillis = 1000
+                                    )
+                                ),
+                                animationType = AnimationType.OFFSET,
+                                wrappedStateHolders = listOf(
+                                    rotationStateHolder
+                                )
+                            )
+                        )
+                    }
+                    traj.add(
+                        StateHolder(
+                            id = identifier,
+                            state = State.Stop,
+                            animationType = AnimationType.OFFSET,
+                            //wrappedStateHolders = TODO()
                         )
                     )
-                }
-                traj.add(
-                    StateHolder(
-                        id = identifier,
-                        state = State.Stop,
-                        animationType = AnimationType.OFFSET,
-                        //wrappedStateHolders = TODO()
-                    )
-                )
-                viewModel.animationEmitter.emitTrajectory(traj.toList())
-            } ) { Text("start") }
+                    viewModel.animationEmitter.emitTrajectory(traj.toList())
+                } ) {
+                Text(text = "Fly around", color = Pink80, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -646,9 +935,10 @@ fun SampleScreen() {
 fun Timer(timer: SampleViewModel.Timer, color: Color) {
     val timerValue by timer.timer.collectAsStateWithLifecycle()
     Text(
-        text = timerValue.toInt().toString(),
+        modifier = Modifier.padding(top = 10.dp),
+        text = "Timer: ${timerValue.toInt()}",
         color = color,
-        fontSize = 24.sp)
+        fontSize = 14.sp)
 }
 
 internal fun Float.toRadians() = this * PI.toFloat() / 180f
@@ -674,14 +964,44 @@ fun calculateOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: 
     return offsets
 }
 
-fun calculateRandOffsets(maxScreenWidth: Float, maxScreenHeight: Float, numOffsets: Int): List<Offset> {
-    val offsets = mutableListOf<Offset>()
+private fun generateRandomOffset(maxScreenWidth: Float, maxScreenHeight: Float): Offset {
+    var xi = Random.nextInt(0, maxScreenWidth.toInt())
+    var yi = Random.nextInt(0, maxScreenHeight.toInt())
+
+    return Offset(xi.toFloat(), yi.toFloat())
+}
+
+private fun generateRandomPath(
+    initialOffset: Offset,
+    initialRotation: Float,
+    maxScreenWidth: Float,
+    maxScreenHeight: Float,
+    numOffsets: Int
+): List<Pair<Offset, Float>> {
+    val result = mutableListOf<Pair<Offset, Float>>()
+
+    var nextOffset = initialOffset
+
+
     for (i in 1..numOffsets) {
-        val xi = Random.nextInt(0, maxScreenWidth.toInt())
-        val yi = Random.nextInt(0, maxScreenHeight.toInt())
-        offsets.add(Offset(xi.toFloat(), yi.toFloat()))
+
+        if (i == 1) {
+
+            nextOffset = generateRandomOffset(maxScreenWidth = maxScreenWidth, maxScreenHeight = maxScreenHeight)
+
+            val currentRotation = atan2(nextOffset.y - initialOffset.y, nextOffset.x - initialOffset.x) * (180 / Math.PI).toFloat()
+            result.add(initialOffset to currentRotation)
+        }
+
+        else {
+            val currentOffset = nextOffset
+            nextOffset = generateRandomOffset(maxScreenWidth = maxScreenWidth, maxScreenHeight = maxScreenHeight)
+            val currentRotation = (atan2(nextOffset.y - currentOffset.y, nextOffset.x - currentOffset.x) * (180 / Math.PI).toFloat()) + 90f
+            result.add(currentOffset to currentRotation)
+        }
     }
-    return offsets
+
+    return result
 }
 
 class CustomRotatingMorphShape(
@@ -699,7 +1019,7 @@ class CustomRotatingMorphShape(
     ): Outline {
         // Below assumes that you haven't changed the default radius of 1f, nor the centerX and centerY of 0f
         // By default this stretches the path to the size of the container, if you don't want stretching, use the same size.width for both x and y.
-        matrix.scale(size.width / 2f, (size.height / 2f) * heightToWidthScaleFactor)
+        matrix.scale(size.width / 2f, size.height / 2f)
         matrix.translate(1f, 1f)
         //matrix.rotateZ(rotation)
 
