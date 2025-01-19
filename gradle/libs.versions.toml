@@ -54,7 +54,6 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 
 [plugins]
 
-androidApplication = { id = "com.android.application", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 gradleLicensesPlugins = { id = "com.jaredsburrows.license", version.ref = "gradle-licenses-plugin" }
