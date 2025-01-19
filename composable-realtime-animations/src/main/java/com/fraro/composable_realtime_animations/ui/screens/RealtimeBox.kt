@@ -119,6 +119,7 @@ suspend fun <T,V> animateSingleVariable(
     when (visualUpdateCast) {
         is Pause -> {
             descriptor?.stopAnimation()
+            isStoppedCallback?.invoke()
         }
 
         is Fixed -> {
@@ -128,6 +129,7 @@ suspend fun <T,V> animateSingleVariable(
         }
 
         is Animated -> {
+            descriptor?.isAnimated = true
             descriptor?.animateTo(
                 durationMillis = visualUpdateCast.animation.durationMillis,
                 targetValue = visualUpdateCast.animation.targetValue,
@@ -136,14 +138,15 @@ suspend fun <T,V> animateSingleVariable(
         }
 
         is Stop -> {
-            /*descriptor?.let {
-                descriptors.remove(it.animationType)
-            }*/
             descriptor?.stopAnimation()
+            descriptor?.let {
+                descriptors.remove(it.animationType)
+            }
             isStoppedCallback?.invoke()
         }
 
         is Start -> {
+            descriptor?.isAnimated = true
             descriptors[visualUpdateCast.visualDescriptor.animationType] = visualUpdateCast.visualDescriptor
             isStartedCallback?.invoke()
         }

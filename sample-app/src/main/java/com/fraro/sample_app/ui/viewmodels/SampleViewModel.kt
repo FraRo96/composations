@@ -28,17 +28,42 @@ class SampleViewModel: ViewModel() {
 
     inner class AnimationEmitter {
 
-        private val _animationFlow = MutableSharedFlow<StateHolder<*,*>>() // Source of particles
+        private val _animationFlow = MutableSharedFlow<StateHolder<*,*>>()
+        private val _animationFlow2 = MutableSharedFlow<StateHolder<*,*>>()
         private val batchedAnimationStateFlow = _animationFlow.toBatchedStateFlow(50L)
+        private val batchedAnimationStateFlow2 = _animationFlow2.toBatchedStateFlow(50L)
 
         fun getTransformedFlow(): StateFlow<StateHolder<*,*>?>
                 = batchedAnimationStateFlow
+        fun getTransformedFlow2(): StateFlow<StateHolder<*,*>?>
+                = batchedAnimationStateFlow2
 
         fun emitTrajectory(trajectory: List<StateHolder<*,*>>) {
             viewModelScope.launch {
                 trajectory.forEach { point ->
-                    println("nuova posizione: ${point.getState().entries}")
                     _animationFlow.emit(
+                        point
+                    )
+                    val delay = when (point.getPartialState()) {
+                        is State.Animated -> {
+                            (point.getPartialState() as State.Animated).animation.durationMillis
+                        }
+                        is State.Start -> {
+                            (point.getPartialState() as State.Start).visualDescriptor.durationMillis
+                        }
+                        else -> {
+                            0
+                        }
+                    }
+                    delay(delay.toLong())
+                }
+            }
+        }
+
+        fun emitTrajectory2(trajectory: List<StateHolder<*,*>>) {
+            viewModelScope.launch {
+                trajectory.forEach { point ->
+                    _animationFlow2.emit(
                         point
                     )
                     val delay = when (point.getPartialState()) {

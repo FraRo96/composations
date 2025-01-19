@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,6 +88,8 @@ import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
 import com.fraro.sample_app.ui.theme.Brown
 import com.fraro.sample_app.ui.theme.DarkBrown
 import com.fraro.sample_app.ui.theme.DarkGreen
+import com.fraro.sample_app.ui.theme.LightBlue
+import com.fraro.sample_app.ui.theme.LightPink
 import com.fraro.sample_app.ui.viewmodels.SampleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.intellij.lang.annotations.Language
@@ -94,13 +97,11 @@ import com.fraro.sample_app.ui.theme.NightPurple
 import com.fraro.sample_app.ui.theme.NightRed
 import com.fraro.sample_app.ui.theme.Pink80
 import com.fraro.sample_app.ui.theme.PinkOrange
-import com.google.android.gms.common.api.internal.zacj
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
-import kotlin.text.toFloat
 
 @Language("AGSL")
 private val SHADER_TREE = """
@@ -213,6 +214,8 @@ fun SampleScreen() {
     val screenHeightDp = localConfig.screenHeightDp.dp
     val screenWidth = with (density) { localConfig.screenWidthDp.dp.toPx() }
     val screenWidthDp = localConfig.screenWidthDp.dp
+
+    var isFlyButtonEnabled by remember { mutableStateOf(true) }
 
     val points = floatArrayOf(    radialToCartesian(1f, 270f.toRadians()).x,
         radialToCartesian(1f, 270f.toRadians()).y,
@@ -371,10 +374,12 @@ fun SampleScreen() {
         for (i in 1..40) {
             Box(
                 modifier = Modifier
-                    .offset { IntOffset(
-                        x = Random.nextInt(0, screenWidthDp.toPx().toInt()),
-                        y = Random.nextInt(0, (screenHeightDp.toPx().toInt() / 3))
-                    ) }
+                    .offset {
+                        IntOffset(
+                            x = Random.nextInt(0, screenWidthDp.toPx().toInt()),
+                            y = Random.nextInt(0, (screenHeightDp.toPx().toInt() / 3))
+                        )
+                    }
                     .clip(
                         CustomRotatingMorphShape(
                             circularMorph,
@@ -384,7 +389,7 @@ fun SampleScreen() {
                     )
                     .padding(0.dp)
                     .background(Color.Yellow)
-                    .size(7.dp / Random.nextInt(1,3))
+                    .size(7.dp / Random.nextInt(1, 3))
             ) {
             }
         }
@@ -471,7 +476,7 @@ fun SampleScreen() {
 
         if (screenHeight > screenWidth) {
             RealtimeBox(
-                animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),
+                animationFlow = MutableStateFlow<StateHolder<*, *>?>(null),
                 initialOffset = Offset(screenWidth / 1.55f, screenHeight / 2.7f)
             ) {
                 Box(
@@ -628,14 +633,20 @@ fun SampleScreen() {
 
         }
 
+        val initialOffsetBig = remember { Offset(screenWidth / 1.55f, screenHeight / 1.75f) }
+        val initialRotationBig = remember { -45f }
+
         RealtimeBox(
-            animationFlow = MutableStateFlow<StateHolder<*,*>?>(null),// viewModel.animationEmitter.getTransformedFlow(),
-            initialOffset = Offset(screenWidth / 1.55f, screenHeight / 1.75f),
-            initialRotation = -45f,
+            animationFlow = viewModel.animationEmitter.getTransformedFlow2(),
+            initialOffset = initialOffsetBig,
+            initialRotation = initialRotationBig,
             isStartedCallback = {
-                viewModel.animationTimer.startTimer(); },
+                viewModel.animationTimer.startTimer();
+            },
             isStoppedCallback = {
-                viewModel.animationTimer.pauseTimer() }
+                isFlyButtonEnabled = true
+                viewModel.animationTimer.pauseTimer()
+            }
         ) {
 
             Box(
@@ -680,17 +691,20 @@ fun SampleScreen() {
             //}
         }
 
-        val initialOffsetBat2 = remember { Offset(screenWidth / 1.25f, screenHeight / 1.85f) }
-        val initialRotationBat2 = remember { 0f }
+        val initialOffsetSmall = remember { Offset(screenWidth / 1.25f, screenHeight / 1.85f) }
+        val initialRotationSmall = remember { 0f }
 
         RealtimeBox(
             animationFlow = viewModel.animationEmitter.getTransformedFlow(),
-            initialOffset = initialOffsetBat2,
-            initialRotation = initialRotationBat2,
+            initialOffset = initialOffsetSmall,
+            initialRotation = initialRotationSmall,
             isStartedCallback = {
-                viewModel.animationTimer.startTimer() },
+                viewModel.animationTimer.startTimer()
+            },
             isStoppedCallback = {
-                viewModel.animationTimer.pauseTimer() }
+                isFlyButtonEnabled = true
+                viewModel.animationTimer.pauseTimer()
+            }
         ) {
 
             Box(
@@ -780,153 +794,339 @@ fun SampleScreen() {
                 }
             }
         }
+        AnimatorComponent(
+            initialOffsetSmall,
+            initialRotationSmall,
+            initialOffsetBig,
+            initialRotationBig,
+            screenHeight,
+            screenWidth,
+            viewModel,
+            isFlyButtonEnabled,
+            { isFlyButtonEnabled = false }
+        )
+    }
+}
 
-        var identifier by remember { mutableLongStateOf(0L) }
+@Composable
+fun AnimatorComponent(
+    initialOffsetSmallBat: Offset,
+    initialRotationSmallBat: Float,
+    initialOffsetBigBat: Offset,
+    initialRotationBigBat: Float,
+    screenHeight: Float,
+    screenWidth: Float,
+    viewModel: SampleViewModel,
+    isFlyButtonEnabled: Boolean,
+    flyButtonCallback: () -> Unit
+) {
+    var identifier by remember { mutableLongStateOf(0L) }
+    var identifier2 by remember { mutableLongStateOf(1L) }
 
-        val traj: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
+    val traj: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
+    val traj2: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
 
-        val offsetAnimatable = remember { Animatable(
-                initialValue = initialOffsetBat2,
-            typeConverter = Offset.VectorConverter) }
+    val offsetAnimatable = remember { Animatable(
+        initialValue = initialOffsetSmallBat,
+        typeConverter = Offset.VectorConverter) }
 
-        val rotationAnimatable = remember { Animatable(
-            initialValue = initialRotationBat2,
-            typeConverter = Float.VectorConverter) }
+    val rotationAnimatable = remember { Animatable(
+        initialValue = initialRotationSmallBat,
+        typeConverter = Float.VectorConverter) }
 
-        val startRotation = remember {
-            StateHolder<Float, AnimationVector1D>(
-                id = identifier,
-                state = Start(
-                    visualDescriptor = VisualDescriptor(
-                        currentValue = initialRotationBat2,
-                        animationType = AnimationType.ROTATION,
-                        animationSpec = tween(
-                            durationMillis = 1000,
-                            easing = LinearEasing
-                        ),
-                        animatable = rotationAnimatable,
-                        isAnimated = true,
-                        durationMillis = 1000
-                    )
-                ),
-                animationType = AnimationType.ROTATION
-            )
-        }
-
-        val startOffset = remember {
-            StateHolder<Offset, AnimationVector2D>(
-                id = identifier,
-                state = Start(
-                    visualDescriptor = VisualDescriptor(
-                        currentValue = initialOffsetBat2,
-                        animationType = AnimationType.OFFSET,
-                        animationSpec = tween(
-                            durationMillis = 1000,
-                            easing = LinearEasing
-                        ),
-                        animatable = offsetAnimatable,
-                        isAnimated = true,
-                        durationMillis = 1000
-                    )
-                ),
-                animationType = AnimationType.OFFSET,
-                wrappedStateHolders = listOf(
-                    startRotation
+    val startRotation = remember {
+        StateHolder<Float, AnimationVector1D>(
+            id = identifier,
+            state = Start(
+                visualDescriptor = VisualDescriptor(
+                    currentValue = initialRotationSmallBat,
+                    animationType = AnimationType.ROTATION,
+                    animationSpec = tween(
+                        durationMillis = 1000,
+                        easing = LinearEasing
+                    ),
+                    animatable = rotationAnimatable,
+                    isAnimated = true,
+                    durationMillis = 1000
                 )
+            ),
+            animationType = AnimationType.ROTATION
+        )
+    }
+
+    var startOffset = remember {
+        StateHolder<Offset, AnimationVector2D>(
+            id = identifier,
+            state = Start(
+                visualDescriptor = VisualDescriptor(
+                    currentValue = initialOffsetSmallBat,
+                    animationType = AnimationType.OFFSET,
+                    animationSpec = tween(
+                        durationMillis = 1000,
+                        easing = LinearEasing
+                    ),
+                    animatable = offsetAnimatable,
+                    isAnimated = true,
+                    durationMillis = 1000
+                )
+            ),
+            animationType = AnimationType.OFFSET,
+            wrappedStateHolders = listOf(
+                startRotation
             )
-        }
+        )
+    }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 40.dp),
-            verticalArrangement = Arrangement.Bottom,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Timer(viewModel.animationTimer, Pink80)
-            Row {
-                IconButton(onClick = { }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
-                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "decrement")
-                }
-                Text(text = "0", color = Pink80, modifier = Modifier.padding(top = 15.dp))
-                IconButton(onClick = { }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
-                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "increment")
-                }
+    val offsetAnimatable2 = remember { Animatable(
+        initialValue = initialOffsetBigBat,
+        typeConverter = Offset.VectorConverter) }
+
+    val rotationAnimatable2 = remember { Animatable(
+        initialValue = initialRotationBigBat,
+        typeConverter = Float.VectorConverter) }
+
+    val startRotation2 = remember {
+        StateHolder<Float, AnimationVector1D>(
+            id = identifier,
+            state = Start(
+                visualDescriptor = VisualDescriptor(
+                    currentValue = initialRotationBigBat,
+                    animationType = AnimationType.ROTATION,
+                    animationSpec = tween(
+                        durationMillis = 1000,
+                        easing = LinearEasing
+                    ),
+                    animatable = rotationAnimatable2,
+                    isAnimated = true,
+                    durationMillis = 1000
+                )
+            ),
+            animationType = AnimationType.ROTATION
+        )
+    }
+
+    var startOffset2 = remember {
+        StateHolder<Offset, AnimationVector2D>(
+            id = identifier,
+            state = Start(
+                visualDescriptor = VisualDescriptor(
+                    currentValue = initialOffsetBigBat,
+                    animationType = AnimationType.OFFSET,
+                    animationSpec = tween(
+                        durationMillis = 1000,
+                        easing = LinearEasing
+                    ),
+                    animatable = offsetAnimatable2,
+                    isAnimated = true,
+                    durationMillis = 1000
+                )
+            ),
+            animationType = AnimationType.OFFSET,
+            wrappedStateHolders = listOf(
+                startRotation2
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 40.dp),
+        verticalArrangement = Arrangement.Bottom,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        var duration by remember { mutableStateOf(0) }
+
+        Timer(viewModel.animationTimer, Pink80)
+        Row {
+            IconButton(onClick = { if (duration > 0) duration-- }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
+                Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "decrement")
             }
-            OutlinedButton(
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent
-                ),
-                border = BorderStroke( width = 1.dp, color = PinkOrange ),
-                modifier = Modifier
-                    .padding(top = 10.dp)
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                NightPurple,
-                                NightRed,
+            Text(text = "$duration", color = Pink80, modifier = Modifier.padding(top = 15.dp))
+            IconButton(onClick = { if (duration < 10000) duration++ }, colors = IconButtonDefaults.iconButtonColors(contentColor = Pink80)) {
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = "increment")
+            }
+        }
+        var leftColor = remember { NightPurple }
+        var rightColor = remember { NightRed }
+        if (!isFlyButtonEnabled) {
+            leftColor = remember { LightBlue }
+            rightColor = remember { LightPink }
+        }
+        OutlinedButton(
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent
+            ),
+            enabled = isFlyButtonEnabled,
+            border = BorderStroke( width = 1.dp, color = PinkOrange ),
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            leftColor,
+                            rightColor,
+                        )
+                    ), shape = ButtonDefaults.shape
+                )
+                .height(ButtonDefaults.MinHeight),
+            onClick = {
+                flyButtonCallback()
+
+                traj.clear()
+                traj2.clear()
+
+                traj.add(startOffset)
+                traj2.add(startOffset2)
+
+                val path = generateRandomPath(
+                    initialOffset = initialOffsetSmallBat,
+                    initialRotation = initialRotationSmallBat,
+                    maxScreenHeight = screenHeight,
+                    maxScreenWidth = screenWidth,
+                    numOffsets = duration - 1
+                )
+                path.add(Pair(initialOffsetSmallBat, initialRotationSmallBat))
+
+                val path2 = generateRandomPath(
+                    initialOffset = initialOffsetBigBat,
+                    initialRotation = initialRotationBigBat,
+                    maxScreenHeight = screenHeight,
+                    maxScreenWidth = screenWidth,
+                    numOffsets = duration - 1
+                )
+                path2.add(Pair(initialOffsetBigBat, initialRotationBigBat))
+
+                /*startOffset =
+                    StateHolder<Offset, AnimationVector2D>(
+                        id = identifier,
+                        state = Start(
+                            visualDescriptor = VisualDescriptor(
+                                currentValue = path[path.size - 1].first,
+                                animationType = AnimationType.OFFSET,
+                                animationSpec = tween(
+                                    durationMillis = 1000,
+                                    easing = LinearEasing
+                                ),
+                                animatable = offsetAnimatable,
+                                isAnimated = true,
+                                durationMillis = 1000
                             )
-                        ), shape = ButtonDefaults.shape
+                        ),
+                        animationType = AnimationType.OFFSET,
+                        wrappedStateHolders = listOf(
+                            startRotation
+                        )
+                    )*/
+
+                path.toList().forEach { (currOffset, currRotation) ->
+
+                    val rotationStateHolder = StateHolder<Float, AnimationVector>(
+                        id = identifier,
+                        state = State.Animated(
+                            animation = Animation(
+                                animationSpec = tween(
+                                    durationMillis = 1000,
+                                    easing = LinearEasing
+                                ),
+                                targetValue = currRotation,
+                                durationMillis = 1000
+                            )
+                        ),
+                        animationType = AnimationType.ROTATION
                     )
-                    .height(ButtonDefaults.MinHeight),
-                onClick = {
-                    traj.add(startOffset)
 
-                    generateRandomPath(
-                        initialOffset = initialOffsetBat2,
-                        initialRotation = initialRotationBat2,
-                        maxScreenHeight = screenHeight,
-                        maxScreenWidth = screenWidth,
-                        numOffsets = 10
-                    ).forEach { (currOffset, currRotation) ->
-
-                        val rotationStateHolder = StateHolder<Float, AnimationVector>(
+                    traj.add(
+                        StateHolder<Offset, AnimationVector>(
                             id = identifier,
                             state = State.Animated(
                                 animation = Animation(
                                     animationSpec = tween(
-                                        durationMillis = 2000,
+                                        durationMillis = 1000,
                                         easing = LinearEasing
                                     ),
-                                    targetValue = currRotation,
-                                    durationMillis = 2000
+                                    targetValue = currOffset,
+                                    durationMillis = 1000
                                 )
                             ),
-                            animationType = AnimationType.ROTATION
-                        )
-
-                        traj.add(
-                            StateHolder<Offset, AnimationVector>(
-                                id = identifier,
-                                state = State.Animated(
-                                    animation = Animation(
-                                        animationSpec = tween(
-                                            durationMillis = 1000,
-                                            easing = LinearEasing
-                                        ),
-                                        targetValue = currOffset,
-                                        durationMillis = 1000
-                                    )
-                                ),
-                                animationType = AnimationType.OFFSET,
-                                wrappedStateHolders = listOf(
-                                    rotationStateHolder
-                                )
+                            animationType = AnimationType.OFFSET,
+                            wrappedStateHolders = listOf(
+                                rotationStateHolder
                             )
                         )
-                    }
-                    traj.add(
-                        StateHolder(
+                    )
+                }
+                traj.add(
+                    StateHolder(
+                        id = identifier,
+                        state = State.Pause,
+                        animationType = AnimationType.OFFSET,
+                        wrappedStateHolders = listOf(StateHolder(
                             id = identifier,
-                            state = State.Stop,
+                            state = State.Pause,
+                            animationType = AnimationType.ROTATION
+                        ))
+                    )
+                )
+
+                path2.toList().forEach { (currOffset, currRotation) ->
+
+                    val rotationStateHolder = StateHolder<Float, AnimationVector>(
+                        id = identifier2,
+                        state = State.Animated(
+                            animation = Animation(
+                                animationSpec = tween(
+                                    durationMillis = 1000,
+                                    easing = LinearEasing
+                                ),
+                                targetValue = currRotation,
+                                durationMillis = 1000
+                            )
+                        ),
+                        animationType = AnimationType.ROTATION
+                    )
+
+                    traj2.add(
+                        StateHolder<Offset, AnimationVector>(
+                            id = identifier2,
+                            state = State.Animated(
+                                animation = Animation(
+                                    animationSpec = tween(
+                                        durationMillis = 1000,
+                                        easing = LinearEasing
+                                    ),
+                                    targetValue = currOffset,
+                                    durationMillis = 1000
+                                )
+                            ),
                             animationType = AnimationType.OFFSET,
-                            //wrappedStateHolders = TODO()
+                            wrappedStateHolders = listOf(
+                                rotationStateHolder
+                            )
                         )
                     )
-                    viewModel.animationEmitter.emitTrajectory(traj.toList())
-                } ) {
-                Text(text = "Fly around", color = Pink80, fontWeight = FontWeight.Bold)
-            }
+                }
+                traj2.add(
+                    StateHolder(
+                        id = identifier2,
+                        state = State.Pause,
+                        animationType = AnimationType.OFFSET,
+                        wrappedStateHolders = listOf(StateHolder(
+                            id = identifier2,
+                            state = State.Pause,
+                            animationType = AnimationType.ROTATION
+                        ))
+                    )
+                )
+
+                viewModel.animationEmitter.emitTrajectory(traj.toList())
+                viewModel.animationEmitter.emitTrajectory2(traj2.toList())
+            } ) {
+            Text(
+                text = "Fly around",
+                color = Pink80,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -977,7 +1177,7 @@ private fun generateRandomPath(
     maxScreenWidth: Float,
     maxScreenHeight: Float,
     numOffsets: Int
-): List<Pair<Offset, Float>> {
+): MutableList<Pair<Offset, Float>> {
     val result = mutableListOf<Pair<Offset, Float>>()
 
     var nextOffset = initialOffset
@@ -996,7 +1196,7 @@ private fun generateRandomPath(
         else {
             val currentOffset = nextOffset
             nextOffset = generateRandomOffset(maxScreenWidth = maxScreenWidth, maxScreenHeight = maxScreenHeight)
-            val currentRotation = (atan2(nextOffset.y - currentOffset.y, nextOffset.x - currentOffset.x) * (180 / Math.PI).toFloat()) + 90f
+            val currentRotation = (atan2(nextOffset.y - currentOffset.y, nextOffset.x - currentOffset.x) * (180 / Math.PI).toFloat()) - 180
             result.add(currentOffset to currentRotation)
         }
     }
