@@ -1,6 +1,7 @@
 package com.fraro.sample_app.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.PointF
 import android.graphics.RuntimeShader
 import androidx.compose.animation.core.Animatable
@@ -97,6 +98,7 @@ import com.fraro.sample_app.ui.theme.NightPurple
 import com.fraro.sample_app.ui.theme.NightRed
 import com.fraro.sample_app.ui.theme.Pink80
 import com.fraro.sample_app.ui.theme.PinkOrange
+import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -794,6 +796,36 @@ fun SampleScreen() {
                 }
             }
         }
+
+        val leftColor = remember { NightPurple }
+        val rightColor = remember { NightRed }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.End
+        ) {
+            OutlinedButton(
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent
+                ),
+                border = BorderStroke( width = 1.dp, color = PinkOrange ),
+                modifier = Modifier
+                    .padding(top = 20.dp, end = 20.dp)
+                    .height(ButtonDefaults.MinHeight),
+                onClick = {
+                    context.startActivity(Intent(context, OssLicensesMenuActivity::class.java))
+                }
+            ) {
+                Text(
+                    text = "Licenses",
+                    color = Pink80,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
         AnimatorComponent(
             initialOffsetSmall,
             initialRotationSmall,
@@ -935,7 +967,7 @@ fun AnimatorComponent(
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        var duration by remember { mutableStateOf(0) }
+        var duration by remember { mutableStateOf(10) }
 
         Timer(viewModel.animationTimer, Pink80)
         Row {

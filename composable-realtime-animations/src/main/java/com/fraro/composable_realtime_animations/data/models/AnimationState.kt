@@ -96,7 +96,6 @@ open class VisualDescriptor<T,V: AnimationVector>(
         animatable.stop()
         this.animationSpec = animationSpec
         this.durationMillis = durationMillis
-        println("Nuova animazione da ${animatable.value} verso $targetValue durata $durationMillis")
         animatable.animateTo(
             targetValue = targetValue,
             animationSpec = this.animationSpec,
