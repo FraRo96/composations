@@ -39,7 +39,7 @@ val randomColor
 
 @Composable
 fun RealtimeBox(
-    animationFlow: StateFlow<StateHolder<*, *>?>,
+    animationState: StateHolder<*, *>?,
     initialOffset: Offset,
     initialRotation: Float? = null,
     isStartedCallback: (() -> Unit)? = null,
@@ -53,13 +53,8 @@ fun RealtimeBox(
         mutableMapOf<AnimationType, VisualDescriptor<*,*>>()
     }
 
-    val collectedFlow by animationFlow.collectAsStateWithLifecycle(
-        initialValue = null,
-        minActiveState = Lifecycle.State.RESUMED
-    )
-
-    LaunchedEffect(key1 = collectedFlow) {
-        collectedFlow?.let {
+    LaunchedEffect(key1 = animationState) {
+        animationState?.let {
             animateMultiVariable(
                 it,
                 multiVariableMap,
