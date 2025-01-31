@@ -10,11 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("jitpack.io") }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 
 rootProject.name = "composable-realtime-animations"
 include(":sample-app")
-include(":composable-realtime-animations")

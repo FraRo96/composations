@@ -79,12 +79,8 @@ import androidx.graphics.shapes.toPath
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.fraro.composable_realtime_animations.data.models.Animation
-import com.fraro.composable_realtime_animations.data.models.AnimationType
-import com.fraro.composable_realtime_animations.data.models.State
+import com.fraro.composable_realtime_animations.data.models.*
 import com.fraro.composable_realtime_animations.data.models.State.Start
-import com.fraro.composable_realtime_animations.data.models.StateHolder
-import com.fraro.composable_realtime_animations.data.models.VisualDescriptor
 import com.fraro.composable_realtime_animations.ui.screens.RealtimeBox
 import com.fraro.sample_app.ui.theme.Brown
 import com.fraro.sample_app.ui.theme.DarkBrown
@@ -205,7 +201,6 @@ private val SHADER_TREE = """
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SampleScreen() {
-
     val context = LocalContext.current
     val localConfig = LocalConfiguration.current
     val density = LocalDensity.current

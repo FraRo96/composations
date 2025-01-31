@@ -57,6 +57,7 @@ android {
 
 dependencies {
 
+    implementation(libs.composable.realtime.animations)
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.activity.compose)
@@ -69,7 +70,6 @@ dependencies {
     implementation(libs.play.services.oss.licenses)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
-    implementation(project(":composable-realtime-animations"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)
