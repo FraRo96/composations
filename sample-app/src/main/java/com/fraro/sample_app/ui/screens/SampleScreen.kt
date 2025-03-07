@@ -95,6 +95,7 @@ import com.fraro.sample_app.ui.theme.NightRed
 import com.fraro.sample_app.ui.theme.Pink80
 import com.fraro.sample_app.ui.theme.PinkOrange
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -214,23 +215,6 @@ fun SampleScreen() {
 
     var isFlyButtonEnabled by remember { mutableStateOf(true) }
 
-    val points = floatArrayOf(    radialToCartesian(1f, 270f.toRadians()).x,
-        radialToCartesian(1f, 270f.toRadians()).y,
-        radialToCartesian(1f, 30f.toRadians()).x,
-        radialToCartesian(1f, 30f.toRadians()).y,
-        radialToCartesian(0.1f, 90f.toRadians()).x,
-        radialToCartesian(0.1f, 90f.toRadians()).y,
-        radialToCartesian(1f, 150f.toRadians()).x,
-        radialToCartesian(1f, 150f.toRadians()).y)
-
-    val birdP1 = RoundedPolygon(points, CornerRounding(0.05f, 0.0f), centerX = 0f, centerY = 0f)
-    val birdP2 = RoundedPolygon.star(
-        numVerticesPerRadius = 4,
-        innerRadius = 0.6f,
-        rounding = CornerRounding(0.1f),
-        innerRounding = CornerRounding(0.2f)
-    )
-
     val treeTrunkP1 = RoundedPolygon.pill()
     val treeTrunkP2 = RoundedPolygon.star(
         numVerticesPerRadius = 5,
@@ -314,10 +298,6 @@ fun SampleScreen() {
         Morph(hexagonStarPoly, trianglePoly)
     }
 
-    val birdMorph = remember {
-        Morph(birdP1, birdP2)
-    }
-
     val treeTrunkMorph = remember {
         Morph(treeTrunkP1, treeTrunkP2)
     }
@@ -343,17 +323,6 @@ fun SampleScreen() {
         ),
         label = "animatedMorphProgress2"
     )
-
-    val animatedProgressB1 = infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.55f,
-        animationSpec = infiniteRepeatable(
-            tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "animatedMorphProgress3"
-    )
-
 
     val animatedProgressB2 = infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -473,7 +442,7 @@ fun SampleScreen() {
 
         if (screenHeight > screenWidth) {
             RealtimeBox(
-                animationFlow = MutableStateFlow<StateHolder<*, *>?>(null),
+                animationState = null,
                 initialOffset = Offset(screenWidth / 1.55f, screenHeight / 2.7f)
             ) {
                 Box(
@@ -633,8 +602,8 @@ fun SampleScreen() {
         val initialOffsetBig = remember { Offset(screenWidth / 1.55f, screenHeight / 1.75f) }
         val initialRotationBig = remember { -45f }
 
-        RealtimeBox(
-            animationFlow = viewModel.animationEmitter.getTransformedFlow2(),
+        BatBox(
+            vmFlow = viewModel.animationEmitter.getTransformedFlow2(),
             initialOffset = initialOffsetBig,
             initialRotation = initialRotationBig,
             isStartedCallback = {
@@ -644,55 +613,15 @@ fun SampleScreen() {
                 isFlyButtonEnabled = true
                 viewModel.animationTimer.pauseTimer()
             }
-        ) {
-
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .drawWithCache {
-                        onDrawBehind {
-                            val path = CustomRotatingMorphShape(
-                                birdMorph,
-                                animatedProgressB1.value,
-                                0f
-                            ).getPath()
-
-                            scale(
-                                scale = size.height,
-                                pivot = Offset(
-                                    size.width / 2,
-                                    size.height / 2
-                                )
-                            ) {
-                                translate(
-                                    left = size.width / 2,
-                                    top = size.height / 2
-                                ) {
-                                    drawPath(
-                                        path = path,
-                                        color = Color.Black.copy(0.8f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    //.offset(1500.dp, 70.dp)
-                    //.background(Color.Red)
-                    .padding(0.dp)
-            )
-            /*Image(
-               painter = painterResource(R.drawable.car),
-               contentDescription = "bird",
-               modifier = Modifier.size(100.dp)
-            )*/
-            //}
-        }
+        )
 
         val initialOffsetSmall = remember { Offset(screenWidth / 1.25f, screenHeight / 1.85f) }
         val initialRotationSmall = remember { 0f }
 
+        /*val flow1 by viewModel.animationEmitter.getTransformedFlow().collectAsStateWithLifecycle()
+
         RealtimeBox(
-            animationFlow = viewModel.animationEmitter.getTransformedFlow(),
+            animationState = flow1,
             initialOffset = initialOffsetSmall,
             initialRotation = initialRotationSmall,
             isStartedCallback = {
@@ -744,7 +673,7 @@ fun SampleScreen() {
                modifier = Modifier.size(100.dp)
             )*/
             //}
-        }
+        } */
 
         if (screenWidth < screenHeight) {
             Column(modifier = Modifier.align(Alignment.BottomCenter)) {
@@ -832,6 +761,107 @@ fun SampleScreen() {
             isFlyButtonEnabled,
             { isFlyButtonEnabled = false }
         )
+    }
+}
+
+@Composable
+fun BatBox(
+    vmFlow: StateFlow<StateHolder<*, *>?>,
+    initialOffset: Offset,
+    initialRotation: Float,
+    isStartedCallback: () -> Unit,
+    isStoppedCallback: () -> Unit,
+    //morph: Morph,
+    //progress: Float
+) {
+    val flow by vmFlow.collectAsStateWithLifecycle()
+
+    val infiniteTransition = rememberInfiniteTransition("infinite nature movement")
+
+    val animatedProgress = infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.55f,
+        animationSpec = infiniteRepeatable(
+            tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "animatedMorphProgress3"
+    )
+
+    val points = remember {
+        floatArrayOf(    radialToCartesian(1f, 270f.toRadians()).x,
+            radialToCartesian(1f, 270f.toRadians()).y,
+            radialToCartesian(1f, 30f.toRadians()).x,
+            radialToCartesian(1f, 30f.toRadians()).y,
+            radialToCartesian(0.1f, 90f.toRadians()).x,
+            radialToCartesian(0.1f, 90f.toRadians()).y,
+            radialToCartesian(1f, 150f.toRadians()).x,
+            radialToCartesian(1f, 150f.toRadians()).y)
+    }
+
+    val birdP1 = remember {
+        RoundedPolygon(points, CornerRounding(0.05f, 0.0f), centerX = 0f, centerY = 0f)
+    }
+    val birdP2 = remember {
+        RoundedPolygon.star(
+            numVerticesPerRadius = 4,
+            innerRadius = 0.6f,
+            rounding = CornerRounding(0.1f),
+            innerRounding = CornerRounding(0.2f)
+        )
+    }
+
+    val birdMorph = remember {
+        Morph(birdP1, birdP2)
+    }
+
+    RealtimeBox(
+        animationState = flow,
+        initialOffset = initialOffset,
+        initialRotation = initialRotation,
+        isStartedCallback = isStartedCallback,
+        isStoppedCallback = isStoppedCallback
+    ) {
+        Box(
+            Modifier
+                .size(40.dp)
+                .drawWithCache {
+                    onDrawBehind {
+                        val path = CustomRotatingMorphShape(
+                            birdMorph,
+                            animatedProgress.value,
+                            0f
+                        ).getPath()
+
+                        scale(
+                            scale = size.height,
+                            pivot = Offset(
+                                size.width / 2,
+                                size.height / 2
+                            )
+                        ) {
+                            translate(
+                                left = size.width / 2,
+                                top = size.height / 2
+                            ) {
+                                drawPath(
+                                    path = path,
+                                    color = Color.Black.copy(0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+                //.offset(1500.dp, 70.dp)
+                //.background(Color.Red)
+                .padding(0.dp)
+        )
+        /*Image(
+           painter = painterResource(R.drawable.car),
+           contentDescription = "bird",
+           modifier = Modifier.size(100.dp)
+        )*/
+        //}
     }
 }
 
