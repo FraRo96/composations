@@ -877,8 +877,6 @@ fun AnimatorComponent(
     isFlyButtonEnabled: Boolean,
     flyButtonCallback: () -> Unit
 ) {
-    var identifier by remember { mutableLongStateOf(0L) }
-    var identifier2 by remember { mutableLongStateOf(1L) }
 
     val traj: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
     val traj2: MutableList<StateHolder<*, *>> = remember { mutableListOf() }
@@ -893,7 +891,6 @@ fun AnimatorComponent(
 
     val startRotation = remember {
         StateHolder<Float, AnimationVector1D>(
-            id = identifier,
             state = Start(
                 visualDescriptor = VisualDescriptor(
                     currentValue = initialRotationSmallBat,
@@ -913,7 +910,6 @@ fun AnimatorComponent(
 
     var startOffset = remember {
         StateHolder<Offset, AnimationVector2D>(
-            id = identifier,
             state = Start(
                 visualDescriptor = VisualDescriptor(
                     currentValue = initialOffsetSmallBat,
@@ -944,7 +940,6 @@ fun AnimatorComponent(
 
     val startRotation2 = remember {
         StateHolder<Float, AnimationVector1D>(
-            id = identifier,
             state = Start(
                 visualDescriptor = VisualDescriptor(
                     currentValue = initialRotationBigBat,
@@ -964,7 +959,6 @@ fun AnimatorComponent(
 
     var startOffset2 = remember {
         StateHolder<Offset, AnimationVector2D>(
-            id = identifier,
             state = Start(
                 visualDescriptor = VisualDescriptor(
                     currentValue = initialOffsetBigBat,
@@ -1056,7 +1050,7 @@ fun AnimatorComponent(
 
                 /*startOffset =
                     StateHolder<Offset, AnimationVector2D>(
-                        id = identifier,
+                        
                         state = Start(
                             visualDescriptor = VisualDescriptor(
                                 currentValue = path[path.size - 1].first,
@@ -1079,7 +1073,6 @@ fun AnimatorComponent(
                 path.toList().forEach { (currOffset, currRotation) ->
 
                     val rotationStateHolder = StateHolder<Float, AnimationVector>(
-                        id = identifier,
                         state = State.Animated(
                             animation = Animation(
                                 animationSpec = tween(
@@ -1095,7 +1088,6 @@ fun AnimatorComponent(
 
                     traj.add(
                         StateHolder<Offset, AnimationVector>(
-                            id = identifier,
                             state = State.Animated(
                                 animation = Animation(
                                     animationSpec = tween(
@@ -1115,11 +1107,11 @@ fun AnimatorComponent(
                 }
                 traj.add(
                     StateHolder(
-                        id = identifier,
+                        
                         state = State.Pause,
                         animationType = AnimationType.OFFSET,
                         wrappedStateHolders = listOf(StateHolder(
-                            id = identifier,
+                            
                             state = State.Pause,
                             animationType = AnimationType.ROTATION
                         ))
@@ -1129,7 +1121,6 @@ fun AnimatorComponent(
                 path2.toList().forEach { (currOffset, currRotation) ->
 
                     val rotationStateHolder = StateHolder<Float, AnimationVector>(
-                        id = identifier2,
                         state = State.Animated(
                             animation = Animation(
                                 animationSpec = tween(
@@ -1145,7 +1136,6 @@ fun AnimatorComponent(
 
                     traj2.add(
                         StateHolder<Offset, AnimationVector>(
-                            id = identifier2,
                             state = State.Animated(
                                 animation = Animation(
                                     animationSpec = tween(
@@ -1165,11 +1155,9 @@ fun AnimatorComponent(
                 }
                 traj2.add(
                     StateHolder(
-                        id = identifier2,
                         state = State.Pause,
                         animationType = AnimationType.OFFSET,
                         wrappedStateHolders = listOf(StateHolder(
-                            id = identifier2,
                             state = State.Pause,
                             animationType = AnimationType.ROTATION
                         ))
