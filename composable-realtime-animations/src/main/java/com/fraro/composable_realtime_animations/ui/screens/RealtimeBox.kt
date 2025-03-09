@@ -6,16 +6,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.fraro.composable_realtime_animations.data.models.AnimationType
 import com.fraro.composable_realtime_animations.data.models.State
 import com.fraro.composable_realtime_animations.data.models.State.*
@@ -32,10 +28,6 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import kotlin.random.Random
-
-val randomColor
-    get() = Color(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
 
 @Composable
 fun RealtimeBox(
@@ -44,7 +36,7 @@ fun RealtimeBox(
     initialRotation: Float? = null,
     isStartedCallback: (() -> Unit)? = null,
     isStoppedCallback: (() -> Unit)? = null,
-    composable: @Composable (() -> Unit)
+    composableContent: @Composable (() -> Unit)
 ) {
 
     val coroutineScope = rememberCoroutineScope()
@@ -76,14 +68,18 @@ fun RealtimeBox(
         rotation = it.getStaticOrAnimatedValue() as Float
     }
 
-    AnimatedBox(offset, rotation, composable)
+    AnimatedBox(
+        offset = offset,
+        rotation = rotation,
+        content = composableContent
+    )
 }
 
 @Composable
 fun AnimatedBox(
     offset: Offset,
     rotation: Float,
-    function: @Composable () -> Unit
+    content: @Composable () -> Unit
 ) {
     SideEffect { println("Animated box") }
     Box(modifier = Modifier
@@ -94,9 +90,8 @@ fun AnimatedBox(
             )
         }
         .rotate(rotation)
-        //.background(color = Color.Black.copy(alpha = 0.3f))
     ) {
-        function()
+        content()
     }
 }
 
@@ -149,15 +144,15 @@ suspend fun <T,V> animateSingleVariable(
 }
 
 fun animateMultiVariable(
-    state: StateHolder<*, *>,
+    stateHolder: StateHolder<*, *>,
     map: MutableMap<AnimationType, VisualDescriptor<*, *>>,
     coroutineScope: CoroutineScope,
     isStartedCallback: (() -> Unit)?,
     isStoppedCallback: (() -> Unit)?
 ) {
 
-    val partialState = state.getPartialState()
-    val states = state.getState()
+    val partialState = stateHolder.getPartialState()
+    val states = stateHolder.getState()
 
     if (partialState is Start<*,*>) {
         isStartedCallback?.invoke()
@@ -176,11 +171,11 @@ fun animateMultiVariable(
             descriptor?.let {
                 coroutineScope.launch {
                     animateSingleVariable(
-                        map,
-                        it,
-                        visualUpdate,
-                        isStartedCallback,
-                        isStoppedCallback
+                        descriptors = map,
+                        descriptor = it,
+                        visualUpdate = visualUpdate,
+                        isStartedCallback = isStartedCallback,
+                        isStoppedCallback = isStoppedCallback
                     )
                 }
             }

@@ -14,30 +14,33 @@ import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.toPath
 
 enum class AnimationType {
-    ROTATION, OFFSET, COLOR, SHAPE, SIZE
+    ROTATION, OFFSET
 }
 
 class StateHolder<T,V: AnimationVector>(
-    val id: Long,
     private val state: State<T,V>,
-    val animationType: AnimationType,
-    val wrappedStateHolders: List<StateHolder<*,*>>? = null,
+    private val animationType: AnimationType,
+    wrappedStateHolders: List<StateHolder<*,*>>? = null,
 ) {
+    private val stateMap = mutableMapOf<AnimationType, State<*,*>>(animationType to state)
+
+    init {
+        wrappedStateHolders?.forEach { wrapped ->
+            stateMap[wrapped.animationType] = wrapped.state
+        }
+    }
 
     fun getPartialState(): State<T,V> = state
 
     fun getState(): Map<AnimationType, State<*,*>> {
-        val stateMap = mutableMapOf<AnimationType, State<*,*>>(animationType to state)
-        wrappedStateHolders?.forEach { wrapped ->
-           stateMap[wrapped.animationType] = wrapped.state
-        }
         return stateMap.toMap()
     }
 }
 
 sealed interface State<T,V: AnimationVector> {
     data class Start<T,V: AnimationVector> (
-        val visualDescriptor: VisualDescriptor<T,V>) : State<T,V>
+        val visualDescriptor: VisualDescriptor<T,V>
+    ) : State<T,V>
     data class Animated<T> (val animation: Animation<T>) : State<T, AnimationVector>
     data class Fixed<T> (val targetValue: T) : State<T, AnimationVector>
     object Pause : State<Any, AnimationVector>
@@ -49,7 +52,6 @@ class Animation<T>(
     val durationMillis: Int,
     val targetValue: T
 )
-
 
 open class VisualDescriptor<T,V: AnimationVector>(
     var currentValue: T,
