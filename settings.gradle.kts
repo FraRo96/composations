@@ -15,5 +15,5 @@ dependencyResolutionManagement {
 }
 
 
-rootProject.name = "composable-realtime-animations"
+rootProject.name = "floating-bats-sample-app"
 include(":sample-app")
