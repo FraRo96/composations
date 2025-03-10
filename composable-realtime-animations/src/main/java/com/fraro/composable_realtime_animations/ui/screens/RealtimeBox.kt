@@ -60,8 +60,8 @@ fun RealtimeBox(
         }
     }
 
-    var offset by remember { mutableStateOf(initialOffset) }
-    var rotation by remember { mutableStateOf(initialRotation ?: 0f) }
+    var offset = remember { initialOffset }
+    var rotation = remember { initialRotation ?: 0f }
 
     multiVariableMap[AnimationType.OFFSET]?.let {
         offset = it.getStaticOrAnimatedValue() as Offset
