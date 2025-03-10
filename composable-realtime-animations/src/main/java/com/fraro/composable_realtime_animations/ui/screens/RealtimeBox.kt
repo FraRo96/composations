@@ -3,9 +3,12 @@ package com.fraro.composable_realtime_animations.ui.screens
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -57,8 +60,8 @@ fun RealtimeBox(
         }
     }
 
-    var offset = remember { initialOffset }
-    var rotation = remember { initialRotation ?: 0f }
+    var offset by remember { mutableStateOf(initialOffset) }
+    var rotation by remember { mutableStateOf(initialRotation ?: 0f) }
 
     multiVariableMap[AnimationType.OFFSET]?.let {
         offset = it.getStaticOrAnimatedValue() as Offset
