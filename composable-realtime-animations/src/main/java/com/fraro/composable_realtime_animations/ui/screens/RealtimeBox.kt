@@ -48,18 +48,6 @@ fun RealtimeBox(
         mutableMapOf<AnimationType, VisualDescriptor<*,*>>()
     }
 
-    LaunchedEffect(key1 = Unit) {
-        animationState?.let {
-            animateMultiVariable(
-                it,
-                multiVariableMap,
-                coroutineScope,
-                isStartedCallback,
-                isStoppedCallback
-            )
-        }
-    }
-
     LaunchedEffect(key1 = animationState) {
         animationState?.let {
             animateMultiVariable(
