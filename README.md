@@ -11,9 +11,9 @@
 ## Showcases
 
 
-![GIF basic](gif/basic.gif)
-![GIF bats](gif/bats.gif)
-![GIF mapbox](gif/mapbox.gif)
+![GIF basic](gifs/basic.gif)
+![GIF bats](gifs/bats.gif)
+![GIF mapbox](gifs/mapbox.gif)
 
 
 
