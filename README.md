@@ -11,9 +11,9 @@
 ## Showcases
 
 
-![GIF basic](gifs/basic.gif)
-![GIF bats](gifs/bats.gif)
-![GIF mapbox](gifs/mapbox.gif)
+|                      Basic usage                       |                   Shapes animation                   |                Mapbox custom annotations                 |
+|:------------------------------------------------------:|:----------------------------------------------------:|:--------------------------------------------------------:|
+| ![GIF basic](gifs/basic.gif){width="250" height="150"} | ![GIF bats](gifs/bats.gif){width="250" height="150"} | ![GIF mapbox](gifs/mapbox.gif){width="250" height="150"} |
 
 
 
@@ -63,6 +63,12 @@ In order for *Composations* to work, you should run:
 - a *UI collected flow* collecting values from the stream provider and updating the UI accordingly (recomposition of the composables).
 
 Supported animations are by now for offset and rotation. Some new properties can be added on further developments.
+
+## Basic Functioning Illustration
+
+When your *stream provider* starts to provide a sequence of offset values, when the first or the second value arrives, you should have an idea of how the animation will be, e.g. the initial and final values, duration, animationSpecs. You can start to setup the animation when the first value arrives, or else you can wait until the second value comes, as this will let you set an animation starting from the first value going towards the second one.
+<img src="images/functioning.jpeg" alt="Functioning">
+Once the *stream provider* provides us with new target values, we want to stop the current animation at the point where it is, then we want to restart a new animation from that point value, towards the new target value from the stream. This concept of destroying a running animation and recreating a new one starting from the point where the previous was is called *additive animation* and Jetpack Compose is able to do it seamlessly.
 
 ## API Reference
 
@@ -248,13 +254,6 @@ RealtimeBox(
 
 ```
 
-
-
-## Basic Functioning Illustration
-
-When your *stream provider* starts to provide a sequence of offset values, when the first or the second value arrives, you should have an idea of how the animation will be, e.g. the initial and final values, duration, animationSpecs. You can start to setup the animation when the first value arrives, or else you can wait until the second value comes, as this will let you set an animation starting from the first value going towards the second one.
-
-Once the *stream provider* provides us with new target values, we want to stop the current animation at the point where it is, then we want to restart a new animation from that point value, towards the new target value from the stream. This concept of destroying a running animation and recreating a new one starting from the point where the previous was is called *additive animation* and Jetpack Compose is able to do it seamlessly.
 ## Multiple Animations Usage Example
 
 Use `wrappedStateHolders` of `StateHolder` class to animate multiple properties at the same time. For example, you can wrap a rotation animation state holder inside an offset animation state holder.
