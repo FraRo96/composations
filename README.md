@@ -11,9 +11,9 @@
 ## Showcases
 
 
-|                      Basic usage                       |                   Shapes animation                   |                Mapbox custom annotations                 |
-|:------------------------------------------------------:|:----------------------------------------------------:|:--------------------------------------------------------:|
-| ![GIF basic](gifs/basic.gif){width="250" height="150"} | ![GIF bats](gifs/bats.gif){width="250" height="150"} | ![GIF mapbox](gifs/mapbox.gif){width="250" height="150"} |
+|                             Basic usage                             |                   Shapes animation                   |                Mapbox custom annotations                 |
+|:-------------------------------------------------------------------:|:----------------------------------------------------:|:--------------------------------------------------------:|
+| <img src="gifs/basic.gif" alt="GIF basic"/> | <img src="gifs/bats.gif" alt="GIF bats"/> | <img src="gifs/mapbox.gif" alt="GIF mapbox"/> |
 
 
 
