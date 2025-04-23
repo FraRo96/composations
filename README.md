@@ -11,6 +11,11 @@
 ## Showcases
 
 
+![GIF basic](gif/basic.gif)
+![GIF bats](gif/bats.gif)
+![GIF mapbox](gif/mapbox.gif)
+
+
 
 ## Why Composations?
 
