@@ -3,6 +3,11 @@
 
 [![Apache License 2.0](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://choosealicense.com/licenses/apache-2.0/)
 
+<p align="center">
+<img src="images/logo2.png" alt="Logo">
+</p>
+
+
 *Composations* (composable-realtime-animations) is a lightweight Kotlin/Android library designed to bring your streaming-based animations to life by creating seamless, fluid, reactive animations based on streams of realtime data.
 
 
